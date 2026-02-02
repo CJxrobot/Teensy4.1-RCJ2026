@@ -474,14 +474,14 @@ void MotorStop(){
 void RobotIKControl(int8_t vx, int8_t vy, float omega){
   // Note: Cast omega to int8_t for consistent data types in the IK control matrix
 
-int8_t p1 = (int8_t)(-0.839 * vx + 1.000 * vy + omega);
-int8_t p2 = (int8_t)(-0.839 * vx - 1.000 * vy + omega);
-int8_t p3 = (int8_t)( 0.923 * vx - 0.923 * vy + omega);
-int8_t p4 = (int8_t)( 0.923 * vx + 0.923 * vy + omega);
-  SetMotorSpeed(1, p1);
-  SetMotorSpeed(2, p2);
-  SetMotorSpeed(3, p3);
-  SetMotorSpeed(4, p4);
+    int8_t p1 = (int8_t)(-0.643 * vx + 0.766 * vy + omega);
+    int8_t p2 = (int8_t)(-0.643 * vx - 0.766 * vy + omega);
+    int8_t p3 = (int8_t)( 0.707 * vx - 0.707 * vy + omega);
+    int8_t p4 = (int8_t)( 0.707 * vx + 0.707 * vy + omega);
+    SetMotorSpeed(1, p1);
+    SetMotorSpeed(2, p2);
+    SetMotorSpeed(3, p3);
+    SetMotorSpeed(4, p4);
 }
 
 void Vector_Motion(float Vx, float Vy){  
