@@ -29,8 +29,10 @@
 #define RtoD_const 57.2958f
 
 // --- PIN DEFINITIONS ---
-#define BUTTON_LEFT  31
-#define BUTTON_RIGHT 30
+#define BTN_UP 31
+#define BTN_DOWN 30
+#define BTN_ENTER 27
+#define BTN_ESC 26
 // ------------------ OLED ------------------
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -56,19 +58,7 @@
 #define DIRA_4 6    // 方向控制腳1
 #define DIRB_4 9
 
-//US Sensor
-#define front_us A13
-#define back_us A8
-#define left_us A12
-#define right_us A14
-#define alpha 0.75
-float pos_x_f = 0.0;
-float pos_y_f = 0.0;
 
-//Outside Line Sensor
-#define back_ls 41     
-#define left_ls 40    
-#define right_ls 39 
 
 //Kicker
 #define Charge_Pin 33 //FET1
@@ -84,10 +74,9 @@ volatile bool righttouch = false;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyroData;
-struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
-struct BallData{uint8_t dis = 255; uint8_t dir = 255; uint8_t possession = 255; bool valid = false;} ballData;
-struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
-struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
+struct LineData{uint32_t state = 0x3FFFF; bool exist = false;} lineData;
+struct BallData{bool exist = false; int16_t deg = -1; int16_t dist = -1;} Ball;
+struct GoalData{bool exist = false; uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; int16_t deg = -1; int16_t dist = -1; }Goal;
 
 float ballDegreelist[16]={22.5,45,67.5,87.5,92.5,112.5,135,157.5,202.5,225,247.5,265,275,292.5,315,337.5};
 float linesensorDegreelist[18]={10,30,50,70,90,110,130,150,170,190,210,230,250,270,290,310,330,350};
@@ -100,8 +89,9 @@ struct RobotControl{
     float heading_threshold = 10.0;     // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;
+    int8_t def_pos = 0;
     bool picked_up = false;
-} control;
+} robot;
 
 
 // --- FUNCTION PROTOTYPES ---
@@ -132,7 +122,7 @@ void rightlstouch();
 // ******************************************************
 
 void Robot_Init(){
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial2.begin(115200);
   Serial3.begin(115200);
   Serial4.begin(115200);
@@ -157,35 +147,23 @@ void Robot_Init(){
   pinMode(DIRA_4,OUTPUT);
   pinMode(DIRB_4,OUTPUT);
 
-  pinMode(BUTTON_LEFT, INPUT_PULLUP);
-  pinMode(BUTTON_RIGHT, INPUT_PULLUP);
+  pinMode(BTN_UP, INPUT_PULLUP);
+  pinMode(BTN_DOWN, INPUT_PULLUP);
+  pinMode(BTN_ENTER, INPUT_PULLUP);
+  pinMode(BTN_ESC, INPUT_PULLUP);
 
-  pinMode(front_us, INPUT);
-  pinMode(back_us, INPUT);
-  pinMode(left_us, INPUT);
-  pinMode(right_us, INPUT);
-  
+
   pinMode(Kicker_Pin, OUTPUT);
   pinMode(Charge_Pin, OUTPUT);
 
   digitalWrite(Kicker_Pin, LOW);
   digitalWrite(Charge_Pin, LOW);
-
-  pinMode(back_ls, INPUT_PULLUP);
-  pinMode(left_ls, INPUT_PULLUP);
-  pinMode(right_ls, INPUT_PULLUP);
-
-  attachInterrupt(digitalPinToInterrupt(back_ls), backlstouch, RISING);
-  attachInterrupt(digitalPinToInterrupt(left_ls), leftlstouch, RISING);
-  attachInterrupt(digitalPinToInterrupt(right_ls), rightlstouch, RISING);
-
   Wire.begin();
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while(1);
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
-  showMessage("start");
   kicker_control(0);
 
 }
@@ -239,25 +217,24 @@ void readBNO085Yaw(){
   }
 }
 
-void readCameraData(){
+void readGoalCam(){
   static uint8_t buffer[10];
   uint8_t index = 0;
-  targetData.valid = false;
-  while (Serial3.available()){
-    uint8_t b = Serial3.read();
+  while(Serial5.available()){
+    uint8_t b = Serial5.read();
     if(index == 0 && b != 0xCC){
       continue;  // 等待開頭 0xCC
     }
     buffer[index++] = b;
     if(index == 10){  // 收滿 10 bytes
       if(buffer[0] == 0xCC && buffer[9] == 0xEE){
-        targetData.x = buffer[1] | (buffer[2] << 8);
-        targetData.y = buffer[3] | (buffer[4] << 8);
-        targetData.w = buffer[5] | (buffer[6] << 8);
-        targetData.h = buffer[7] | (buffer[8] << 8);
-        targetData.valid = true;  
-        if(targetData.x == 65535 || targetData.y == 65535 || targetData.w == 65535 || targetData.h == 65535){
-          targetData.valid = false;  
+        Goal.x = buffer[1] | (buffer[2] << 8);
+        Goal.y = buffer[3] | (buffer[4] << 8);
+        Goal.w = buffer[5] | (buffer[6] << 8);
+        Goal.h = buffer[7] | (buffer[8] << 8);
+        Goal.exist = true;  
+        if(Goal.x == 65535 && Goal.y == 65535 && Goal.w == 65535 && Goal.h == 65535){
+          Goal.exist = false;  
         }            
       }
       index = 0;  // reset buffer
@@ -265,119 +242,56 @@ void readCameraData(){
   }
 }
 
+void readBallCam(){
+    static uint8_t buffer[6] = {0};
+    static uint8_t idx = 0;
+    while(Serial4.available()){
+        uint8_t b = Serial4.read();
+        if(idx == 0 && b != 0xCC){continue;} //wait for 0xCC
+        buffer[idx++] = b;
 
-void ballsensor(){
-  // 發送請求封包，通知感測器回傳資料
-  uint8_t b[4];
-  ballData.valid = false;
-
-  Serial4.write(0xBB);
-  while(!Serial4.available());
-  Serial4.readBytes(b,4);
-  if(b[1]==0xFF){
-      ballData.valid = false;
-      ballData.dir = 255;
-      ballData.dis = 255;
-  }
-  else if(b[0]==0xAA){
-    uint8_t temp =b[1];
-    ballData.valid = true;
-    ballData.dir = (temp & 0x0F);
-    ballData.dis = (temp & 0xF0)>>4;
-    //ballData.possession = (uint8_t)((1-alpha) * b[2] + ballData.possession * alpha);
-    ballData.possession = (uint8_t) b[2];
-  
-  }
-  else{
-    ballData.valid = false;
-  }
+        if(idx == 6){ //裝包 共6組
+            if(buffer[0] == 0xCC && buffer[5] == 0xEE){
+               Ball.deg = buffer[1] | (buffer[2] << 8);
+               Ball.dist = buffer[3] | (buffer[4] << 8);
+            
+               if(Ball.deg != 65535 && Ball.dist != 65535)
+                Ball.exist = true;
+               else{
+                Ball.exist = false;
+               }  //無球
+            }
+            else{
+                Ball.exist = false;
+            }  //無數據
+            idx = 0;  // reset buffer
+        }  
+    }
 }
 
 void linesensor(){
   uint8_t buffer[7];
-  Serial5.write(0xdd);
-  while(!Serial5.available());
-  Serial5.readBytes(buffer,7);
-  lineData.valid = false;
+  Serial7.write(0xdd);
+  while(!Serial7.available());
+  Serial7.readBytes(buffer,7);
+  lineData.exist = false;
   if(buffer[0] != 0xaa) return;
   if(buffer[0] == 0xAA && buffer[6] == 0xEE){
     uint8_t checksum = (buffer[1] + buffer[2] + buffer[3] + buffer[4]) & 0xFF;
     if(checksum == buffer[5]){
-      lineData.valid = true;
+      
       lineData.state = buffer[1] | (buffer[2] << 8) | (buffer[3] << 16) | (buffer[4] << 24);     
       if(lineData.state != 0b111111111111111111){
-        Vector_Motion(0,0);  // Stop robot if line detected
+        //Vector_Motion(0,0);  // Stop robot if line detected
+        lineData.exist = true;
       }
     }
   }
   else{
-    lineData.valid = false;  // checksum error
+    lineData.exist = false;  // checksum error
   }
 }
 
-void readussensor(){
-  // static variables remember their values between calls
-  static float dist_b_f = 0.0f;
-  static float dist_l_f = 0.0f;
-  static float dist_r_f = 0.0f;
-  static float dist_f_f = 0.0f;
-
-  // read raw ADC and convert to cm (or mm depending on your scaling)
-  float dist_b_raw = analogRead(back_us) * 520.0f / 1024.0f;
-  float dist_l_raw = analogRead(left_us) * 520.0f / 1024.0f;
-  float dist_r_raw = analogRead(right_us) * 520.0f / 1024.0f;
-  float dist_f_raw = analogRead(front_us) * 520.0f / 1024.0f;
-  // complementary (low-pass) filtering
-  dist_b_f = alpha * dist_b_f + (1.0f - alpha) * dist_b_raw;
-  dist_l_f = alpha * dist_l_f + (1.0f - alpha) * dist_l_raw;
-  dist_r_f = alpha * dist_r_f + (1.0f - alpha) * dist_r_raw;
-  dist_f_f = alpha * dist_f_f + (1.0f - alpha) * dist_f_raw;
-  // assign filtered values to struct
-  usData.dist_b = dist_b_f;
-  usData.dist_l = dist_l_f;
-  usData.dist_r = dist_r_f;
-  usData.dist_f = dist_f_f;
-}
-/*
-void showStart(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Start");
-  display.display();
-}
-
-void showLine(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Line");
-  display.display();
-}
-
-void showEmergency(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Emergency!");
-  display.display();
-}
-
-void showRunScreen(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Run");
-  display.display();
-}
-*/
-void showUS(float dist1, float dist2, float dist3) {
-  display.setTextSize(1);
-  display.setCursor(60, 0);  display.print("d_l ");  display.println(dist1);
-  display.setCursor(60, 15); display.print("d_r");  display.println(dist2);
-  display.setCursor(60, 30); display.print("d_b "); display.println(dist3);
-  display.display();
-}
 
 void showMessage(const char* message, int textSize = 2, int x = 0, int y = 20){
   display.clearDisplay();
@@ -398,6 +312,7 @@ void showSensors(float gyro, int ball, int light){
 
 /*Actuators Part*/
 void SetMotorSpeed(uint8_t port, int8_t speed){
+  Serial.printf("M%d : %d", port, speed);
   speed = constrain(speed,-1.5 * MAX_V, 1.5 * MAX_V);
   int pwmVal = abs(speed) * 255 / 100;
   switch (port){
@@ -487,11 +402,37 @@ void Vector_Motion(float Vx, float Vy){
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
-  float e = control.robot_heading - sensor_heading;
-  if(fabs(e) > control.heading_threshold){
-      omega = e * control.P_factor;
+  float e = robot.robot_heading - sensor_heading;
+  if(fabs(e) > robot.heading_threshold){
+      omega = e * robot.P_factor * 0.5;
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
+}
+
+void FC_Vector_Motion(int WVx, int WVy, float target_heading) {
+    // 1. Convert gyro to Radians (math functions use radians)
+    float rad = (target_heading-90)* (M_PI / 180.0);
+    float cos_h = cos(rad);
+    float sin_h = sin(rad);
+
+    // 2. Rotate World Vectors to Robot Frame
+    int8_t robot_vx = (int8_t)(WVx * cos_h + WVy * sin_h);
+    int8_t robot_vy = (int8_t)(-WVx * sin_h + WVy * cos_h);
+    //Serial.printf("robot %d, %d\n", robot_vx, robot_vy);
+    // 3. Calculate Heading Correction (Omega)
+    float omega = 0;
+    float current_gyro_heading = 90 - gyroData.heading;
+    // Normalize error to find the shortest path to target_heading
+    float e = target_heading - current_gyro_heading;
+    while (e > 180) e -= 360;
+    while (e < -180) e += 360;
+
+    if (fabs(e) > robot.heading_threshold) {
+        omega = e * robot.P_factor ;
+    }
+    //Serial.printf("omege%d\n", omega);
+    // 4. Send to IK Control
+    RobotIKControl(robot_vx, robot_vy, (int8_t)omega);
 }
 
 void Degree_Motion(float moving_degree, int8_t speed){
@@ -503,7 +444,6 @@ void Degree_Motion(float moving_degree, int8_t speed){
   float Vy = sin(moving_degree_rad) * speed;
   Vector_Motion(Vx, Vy);
 }
-
 
 void kicker_control(bool kick = false){
   static uint64_t charge_start = 0;
@@ -548,9 +488,4 @@ void kicker_control(bool kick = false){
     Serial.println("kick");
     charging_state = false;
   }
-}
-
-// INTERRUPT
-void backlstouch(){ backtouch = true; }
-void leftlstouch(){ lefttouch = true; }
-void rightlstouch(){ righttouch = true; }
+}  
