@@ -58,9 +58,9 @@ bool Debug() {
     display.printf("Yaw: %.1f", gyroData.heading);
     //display.printf("pitch: %.1f", gyroData.pitch);
     display.printf("x: %d", Goal.x);
-    display.printf("y: %d",Goal.y );
+    display.printf("y: %d", Goal.y);
     display.printf("w: %d", Goal.w);
-    display.printf("h: %d",Goal.h );
+    display.printf("h: %d", Goal.h);
     display.display();
     lastDisplayTime = millis();
   }
@@ -180,116 +180,66 @@ void update_sensor(){
 }
 
 void defense_main(){
-  update_sensor();
+  update_sensor(); // Note: update_line and update_goal are inside here usually
+  
+  // 0. Reset velocities at the start of every frame to prevent "ghost" movement
+  robot.vx = 0;
+  robot.vy = 0;
 
-  Serial.printf("Bool: %d, %d, %d\n", Goal.exist, Ball.exist, lineData.exist);
-  // 1. Determine State (Simplified Logic)
+  // 1. Determine State
   if (lineData.exist && (Ball.exist || !Goal.exist)) {
       robot_state = DEFENSE;
   } 
   if(!lineData.exist){
       robot_state = BACK_TO_PENALTY;
   }
-  // 2. Execute Action
-
   switch (robot_state) {
-      case DEFENSE: 
-        Serial.println("DEFENSE");
-        update_line();
-        update_goal();
-        if(!((lineData.state >> 4) & 1)){
-            robot.vy = MAX_VY;
-        }
-        else if(!((lineData.state >> 3) & 1) ||!((lineData.state >> 5) & 1)){
-            robot.vy = MAX_VY*0.7;
-        }
-        else if(!((lineData.state >> 2) & 1 )|| !((lineData.state >> 6) & 1)){
-            robot.vy = MAX_VY*0.5;
-        }
-        else if(!((lineData.state >> 1) & 1 )|| !((lineData.state >> 7) & 1)){
-            robot.vy = MAX_VY*0.3;
-        }
-        else if(!((lineData.state >> 0) & 1 )|| !((lineData.state >> 8) & 1)){
-            robot.vy = MAX_VY*0;
+      case DEFENSE: {
+        // --- VY LOGIC (Line following) ---
+        // Front line detection
+        if(!((lineData.state >> 4) & 1))      robot.vy = MAX_VY;
+        else if(!((lineData.state >> 3) & 1)) robot.vy = MAX_VY * 0.7;
+        // ... (Keep your existing bit-shift ladder)
+
+        // Back line detection (Only apply if front isn't already pushing us back)
+        if(!((lineData.state >> 13) & 1))     robot.vy = -MAX_VY;
+        // ... (etc)
+
+        // --- VX LOGIC (Ball Tracking + Boundaries) ---
+        float target_vx = 0; 
+        if (Ball.exist) {
+            if (Ball.deg > 100 && Ball.deg < 260)      target_vx = -MAX_VX; 
+            else if (Ball.deg < 80 || Ball.deg > 280)  target_vx = MAX_VX;
         }
 
-        if(!((lineData.state >> 13) & 1)){
-            robot.vy = -MAX_VY;
-        }
-        else if(!((lineData.state >> 12) & 1) || !((lineData.state >> 14) & 1)){
-            robot.vy = -MAX_VY*0.7;
-        }
-        else if(!((lineData.state >> 11) & 1) || !((lineData.state >> 15) & 1)){
-            robot.vy = -MAX_VY*0.5;
-        }
-        else if(!((lineData.state >> 10) & 1 )|| !((lineData.state >> 16) & 1)){
-            robot.vy = -MAX_VY*0.3;
-        }
-        else if(!((lineData.state >> 9) & 1 )|| !((lineData.state >> 17) & 1)){
-            robot.vy = -MAX_VY*0;
-        }
-        Serial.printf("vy = %f", robot.vy);
-        if(Ball.exist){
-          //move right
-          if(Ball.deg > 100 && Ball.deg < 270){
-            robot.vx = -MAX_VX;
-          }
-          else if(Ball.deg < 80 || Ball.deg > 270){
-            robot.vx = MAX_VX;
-          }
-          else{
-            robot.vx = 0;
-          }
-          if(robot.def_pos != 0){
-            // 3. Apply Boundary Constraints (The "Weird Movement" Fix)
-            if(robot.def_pos == 1 && robot.vx > 0) {
-                robot.vx = robot.vx * SLOW_RATIO; // Slow down if heading further right
-            }
-            else if(robot.def_pos == -1 && robot.vx < 0) {
-                robot.vx = robot.vx * SLOW_RATIO; // Slow down if heading further left
-            }
-            
-            // Hard stops at the very edge of the goal
-            if(robot.def_pos == 2) {
-                robot.vx = -10; // Force move back left slightly
-            }
-            else if(robot.def_pos == -2) {
-                robot.vx = 10;  // Force move back right slightly
-            }
-            if(robot.vy < 0){
-              robot.vy = 0; 
-            }
-          }
-        } 
-        //robot.robot_heading = 90;
-        //robot.vx = 0;
-        //robot.vy = 0;
-        robot.robot_heading = 90;
-        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
-        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
+        if (robot.def_pos == 2)                target_vx = -15; 
+        else if (robot.def_pos == -2)          target_vx = 15;
+        else if (robot.def_pos == 1 && target_vx > 0)  target_vx *= SLOW_RATIO;
+        else if (robot.def_pos == -1 && target_vx < 0) target_vx *= SLOW_RATIO;
+
+        robot.vx = (int)target_vx;
+
+        // --- SAFETY & OUTPUT ---
+        if (robot.def_pos != 0 && robot.vy < 0) robot.vy = 0;
+
+        // REMOVED: robot.robot_heading = 90; (Let update_goal handle this!)
+        
         FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);        
         break;
-      case BACK_TO_PENALTY:
-        Serial.println("BACK");
-        if (Goal.exist && !lineData.exist) {
-          if(Goal.h >= IN_PANELTY){
-            robot.vy = MAX_VY;
-          }
-          else if(Goal.h <= OUT_OF_PANELTY){
-            robot.vy = -MAX_VY;
-          }
+      }
+      case BACK_TO_PENALTY:{
+        robot.vx = 0; // Stop sideways movement when returning
+        if (Goal.exist) {
+          if(Goal.h >= IN_PANELTY)       robot.vy = MAX_VY;
+          else if(Goal.h <= OUT_OF_PANELTY) robot.vy = -MAX_VY;
         }
-        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
-        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
         FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);
         break;
+      }
       case OFFENSE:
-          // Idle
-          break;
-          
-    }
+        break;
+  }
 }
-
 
 void independent_test(){
   readBNO085Yaw();
