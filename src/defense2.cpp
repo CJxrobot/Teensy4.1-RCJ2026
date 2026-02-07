@@ -180,66 +180,122 @@ void update_sensor(){
 }
 
 void defense_main(){
-  update_sensor(); // Note: update_line and update_goal are inside here usually
-  
-  // 0. Reset velocities at the start of every frame to prevent "ghost" movement
-  robot.vx = 0;
-  robot.vy = 0;
-
-  // 1. Determine State
+  update_sensor();
+  update_line();
+  update_goal();
+  Serial.printf("Bool: %d, %d, %d\n", Goal.exist, Ball.exist, lineData.exist);
+  // 1. Determine State (Simplified Logic)
   if (lineData.exist && (Ball.exist || !Goal.exist)) {
       robot_state = DEFENSE;
   } 
   if(!lineData.exist){
       robot_state = BACK_TO_PENALTY;
   }
+  // 2. Execute Action
+
   switch (robot_state) {
       case DEFENSE: {
-        // --- VY LOGIC (Line following) ---
-        // Front line detection
-        if(!((lineData.state >> 4) & 1))      robot.vy = MAX_VY;
-        else if(!((lineData.state >> 3) & 1)) robot.vy = MAX_VY * 0.7;
-        // ... (Keep your existing bit-shift ladder)
-
-        // Back line detection (Only apply if front isn't already pushing us back)
-        if(!((lineData.state >> 13) & 1))     robot.vy = -MAX_VY;
-        // ... (etc)
-
-        // --- VX LOGIC (Ball Tracking + Boundaries) ---
-        float target_vx = 0; 
-        if (Ball.exist) {
-            if (Ball.deg > 100 && Ball.deg < 260)      target_vx = -MAX_VX; 
-            else if (Ball.deg < 80 || Ball.deg > 280)  target_vx = MAX_VX;
+        Serial.println("DEFENSE");
+        if(!((lineData.state >> 4) & 1)){
+            robot.vy = MAX_VY;
+        }
+        else if(!((lineData.state >> 3) & 1) ||!((lineData.state >> 5) & 1)){
+            robot.vy = MAX_VY*0.7;
+        }
+        else if(!((lineData.state >> 2) & 1 )|| !((lineData.state >> 6) & 1)){
+            robot.vy = MAX_VY*0.5;
+        }
+        else if(!((lineData.state >> 1) & 1 )|| !((lineData.state >> 7) & 1)){
+            robot.vy = MAX_VY*0.3;
+        }
+        else if(!((lineData.state >> 0) & 1 )|| !((lineData.state >> 8) & 1)){
+            robot.vy = MAX_VY*0;
         }
 
-        if (robot.def_pos == 2)                target_vx = -15; 
-        else if (robot.def_pos == -2)          target_vx = 15;
-        else if (robot.def_pos == 1 && target_vx > 0)  target_vx *= SLOW_RATIO;
-        else if (robot.def_pos == -1 && target_vx < 0) target_vx *= SLOW_RATIO;
+        if(!((lineData.state >> 13) & 1)){
+            robot.vy = -MAX_VY;
+        }
+        else if(!((lineData.state >> 12) & 1) || !((lineData.state >> 14) & 1)){
+            robot.vy = -MAX_VY*0.7;
+        }
+        else if(!((lineData.state >> 11) & 1) || !((lineData.state >> 15) & 1)){
+            robot.vy = -MAX_VY*0.5;
+        }
+        else if(!((lineData.state >> 10) & 1 )|| !((lineData.state >> 16) & 1)){
+            robot.vy = -MAX_VY*0.3;
+        }
+        else if(!((lineData.state >> 9) & 1 )|| !((lineData.state >> 17) & 1)){
+            robot.vy = -MAX_VY*0;
+        }
+        Serial.printf("vy = %f", robot.vy);
+        // 1. Calculate Initial Desired VX based on Ball
+        int target_vx = 0; 
+        if (Ball.exist) {
+            if (Ball.deg > 100 && Ball.deg < 260) {
+                target_vx = -MAX_VX; // Want to go Left
+            } 
+            else if (Ball.deg < 80 || Ball.deg > 280) {
+                target_vx = MAX_VX;  // Want to go Right
+            }
+        }
 
-        robot.vx = (int)target_vx;
+        // 2. Apply Boundary Constraints (Safety Layer)
+        // This must happen OUTSIDE of "if(Ball.exist)" so the robot always stays in bounds.
+        if (robot.def_pos == 2) {
+            // We are past the Right limit: Force move Left regardless of ball
+            target_vx = -15; 
+        } 
+        else if (robot.def_pos == -2) {
+            // We are past the Left limit: Force move Right regardless of ball
+            target_vx = 15;
+        } 
+        else if (robot.def_pos == 1 && target_vx > 0) {
+            // Near Right edge: Slow down any further right movement
+            target_vx = target_vx * SLOW_RATIO;
+        } 
+        else if (robot.def_pos == -1 && target_vx < 0) {
+            // Near Left edge: Slow down any further left movement
+            target_vx = target_vx * SLOW_RATIO;
+        }
 
-        // --- SAFETY & OUTPUT ---
-        if (robot.def_pos != 0 && robot.vy < 0) robot.vy = 0;
+        // 3. Apply the filtered value to the robot
+        robot.vx = target_vx;
 
-        // REMOVED: robot.robot_heading = 90; (Let update_goal handle this!)
-        
+        // 4. VY Safety: If we are at the edge of the penalty area, don't back up further
+        if (robot.def_pos != 0 && robot.vy < 0) {
+            robot.vy = 0;
+        }
+        //robot.robot_heading = 90;
+        //robot.vx = 0;
+        //robot.vy = 0;
+        robot.robot_heading = 90;
+        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
+        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
         FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);        
         break;
       }
       case BACK_TO_PENALTY:{
-        robot.vx = 0; // Stop sideways movement when returning
-        if (Goal.exist) {
-          if(Goal.h >= IN_PANELTY)       robot.vy = MAX_VY;
-          else if(Goal.h <= OUT_OF_PANELTY) robot.vy = -MAX_VY;
+        Serial.println("BACK");
+        if (Goal.exist && !lineData.exist) {
+          if(Goal.h >= IN_PANELTY){
+            robot.vy = MAX_VY;
+          }
+          else if(Goal.h <= OUT_OF_PANELTY){
+            robot.vy = -MAX_VY;
+          }
         }
+        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
+        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
         FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);
         break;
       }
       case OFFENSE:
-        break;
-  }
+          // Idle
+          break;
+          
+    }
 }
+
 
 void independent_test(){
   readBNO085Yaw();
