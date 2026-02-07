@@ -136,39 +136,39 @@ void update_goal(){
   readGoalCam();
   float p_control = 0.005;
   float offset = 0;
-  if(Goal.exist){
+  if(Goal.exist && Goal.x <= 320){
     if(abs(Goal.x -160) < HORZ_RANGE){//center
-        if(robot.robot_heading < 80){
+      if(robot.robot_heading < 80){
           offset = p_control * 20;
-        }
-        if(robot.robot_heading > 100){
+      }
+      if(robot.robot_heading > 100){
           offset = -p_control * 20;
-        }
-        robot.def_pos = 0;
       }
-      else if(Goal.x > 160 + HORZ_RANGE){//right
-        offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
-        robot.def_pos = 1;
-      }
-      else if(Goal.x < 160 - HORZ_RANGE){//left
-        offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
-        robot.def_pos = -1;
-      }
-      else if(Goal.x > 160 + HORZ_RANGE + STOP_OFFSET){//right limit
-        offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
-        robot.def_pos = 2;
-      }
-      else if(Goal.x < 160 - HORZ_RANGE - STOP_OFFSET){//left limit
-        offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
-        robot.def_pos = -2;
-      }
-      robot.robot_heading += offset;
-      if(gyroData.heading > 30){
-        robot.robot_heading = 60;
-      } 
-      if(gyroData.heading < -30){
-        robot.robot_heading = 120;
-      }
+      robot.def_pos = 0;
+    }
+    else if(Goal.x > 160 + HORZ_RANGE){//right
+      offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
+      robot.def_pos = 1;
+    }
+    else if(Goal.x < 160 - HORZ_RANGE){//left
+      offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
+      robot.def_pos = -1;
+    }
+    else if(Goal.x > 160 + HORZ_RANGE + STOP_OFFSET){//right limit
+      offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
+      robot.def_pos = 2;
+    }
+    else if(Goal.x < 160 - HORZ_RANGE - STOP_OFFSET){//left limit
+      offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
+      robot.def_pos = -2;
+    }
+    robot.robot_heading += offset;
+    if(gyroData.heading > 30){
+      robot.robot_heading = 60;
+    } 
+    if(gyroData.heading < -30){
+      robot.robot_heading = 120;
+    }
   }
 }
 
@@ -216,7 +216,7 @@ void defense_main(){
         if(!((lineData.state >> 13) & 1)){
             robot.vy = -MAX_VY;
         }
-        else if(!(lineData.state >> 12) & 1 || !(lineData.state >> 14) & 1){
+        else if(!((lineData.state >> 12) & 1) || !((lineData.state >> 14) & 1)){
             robot.vy = -MAX_VY*0.7;
         }
         else if(!((lineData.state >> 11) & 1) || !((lineData.state >> 15) & 1)){
@@ -232,39 +232,29 @@ void defense_main(){
         if(Ball.exist){
           //move right
           if(Ball.deg > 100 && Ball.deg < 270){
-            robot.vx = -MAX_VX * abs(90 - (Ball.deg - 180)) * 0.01;
+            robot.vx = -MAX_VX;
           }
-          if(Ball.deg < 80 || Ball.deg > 270){
-            if(Ball.deg < 80){
-              robot.vx = MAX_VX * abs(90 - (Ball.deg - 0)) * 0.01;
-            }
-            else if(Ball.deg > 270){
-              robot.vx = MAX_VX * abs(90 - (Ball.deg - 270)) * 0.01;
-            }
+          else if(Ball.deg < 80 || Ball.deg > 270){
+            robot.vx = MAX_VX;
           }
           else{
             robot.vx = 0;
           }
           if(robot.def_pos != 0){
-            if(robot.def_pos == 1){
-              if(robot.vx > 0){
-                robot.vx = robot.vx * SLOW_RATIO;
-              }
+            // 3. Apply Boundary Constraints (The "Weird Movement" Fix)
+            if(robot.def_pos == 1 && robot.vx > 0) {
+                robot.vx *= SLOW_RATIO; // Slow down if heading further right
             }
-            else if(robot.def_pos == -1){
-              if(robot.vx < 0){
-                robot.vx = robot.vx * SLOW_RATIO;
-              }
+            else if(robot.def_pos == -1 && robot.vx < 0) {
+                robot.vx *= SLOW_RATIO; // Slow down if heading further left
             }
-            if(robot.def_pos == 2){
-              if(robot.vx > 0){
-                robot.vx = -robot.vx * SLOW_RATIO;
-              }
+            
+            // Hard stops at the very edge of the goal
+            if(robot.def_pos == 2) {
+                robot.vx = -10; // Force move back left slightly
             }
-            else if(robot.def_pos == -2){
-              if(robot.vx < 0){
-                robot.vx = -robot.vx * SLOW_RATIO;
-              }
+            else if(robot.def_pos == -2) {
+                robot.vx = 10;  // Force move back right slightly
             }
             if(robot.vy < 0){
               robot.vy = 0; 
