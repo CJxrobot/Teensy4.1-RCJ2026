@@ -12,17 +12,7 @@
 #define BALL_Threshold 5
 #define TOTAL_BALL_SENSORS 10
 
-//ROBOT MAX SPEED
-#define MAX_V 40
-
-//ROBOT DEFENSE PARAMETERS
-#define MAX_VX 60
-#define MAX_VY 60
-#define Def_offset 2.5
-#define Back_safe 35//cm
-#define Side_safe 45//cm
-#define Back_limit 15
-#define Side_limit 45
+#define MAX_V 60
 
 // --- MATH CONSTANTS & CONTROL PARAMETERS ---
 #define DtoR_const 0.0174529f
@@ -57,8 +47,6 @@
 #define pwmPin4 5   // PWM 控制腳
 #define DIRA_4 6    // 方向控制腳1
 #define DIRB_4 9
-
-
 
 //Kicker
 #define Charge_Pin 33 //FET1
