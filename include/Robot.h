@@ -220,6 +220,7 @@ void readBNO085Yaw(){
 void readGoalCam(){
   static uint8_t buffer[10];
   uint8_t index = 0;
+  Goal.exist = false;
   while(Serial5.available()){
     uint8_t b = Serial5.read();
     if(index == 0 && b != 0xCC){
@@ -233,7 +234,7 @@ void readGoalCam(){
         Goal.w = buffer[5] | (buffer[6] << 8);
         Goal.h = buffer[7] | (buffer[8] << 8);
         Goal.exist = true;  
-        if(Goal.x == 65535 && Goal.y == 65535 && Goal.w == 65535 && Goal.h == 65535){
+        if(Goal.x == 65535 || Goal.y == 65535 || Goal.w == 65535 || Goal.h == 65535){
           Goal.exist = false;  
         }            
       }
@@ -489,13 +490,4 @@ void kicker_control(bool kick = false){
     Serial.println("kick");
     charging_state = false;
   }
-<<<<<<< HEAD
 }  
-=======
-}
-
-// INTERRUPT
-void backlstouch(){ backtouch = true; }
-void leftlstouch(){ lefttouch = true; }
-void rightlstouch(){ righttouch = true; }
->>>>>>> 8cfc299c8b87958b145983642c222a52eed4bb8f

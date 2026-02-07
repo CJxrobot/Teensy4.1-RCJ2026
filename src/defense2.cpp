@@ -6,9 +6,10 @@
 #include <math.h>
 
 #define DIST_THRESHOLD 50
-#define MAX_VY 30
+#define MAX_VY 20
 #define MAX_VX 30
-#define HORZ_RANGE 60
+#define HORZ_RANGE 70
+#define STOP_OFFSET 20
 #define OUT_OF_PANELTY 50
 #define IN_PANELTY 60
 #define SLOW_RATIO 0.2
@@ -135,29 +136,39 @@ void update_goal(){
   readGoalCam();
   float p_control = 0.005;
   float offset = 0;
-  if(abs(Goal.x -160) < HORZ_RANGE){//center
-    if(robot.robot_heading < 80){
-      offset = p_control * 20;
-    }
-    if(robot.robot_heading > 100){
-      offset = -p_control * 20;
-    }
-    robot.def_pos = 0;
-  }
-  else if(Goal.x > 160 + HORZ_RANGE){//right
-    offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
-    robot.def_pos = 1;
-  }
-  else if(Goal.x < 160 - HORZ_RANGE){//left
-    offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
-    robot.def_pos = -1;
-  }
-  robot.robot_heading += offset;
-  if(gyroData.heading > 30){
-    robot.robot_heading = 60;
-  } 
-  if(gyroData.heading < -30){
-    robot.robot_heading = 120;
+  if(Goal.exist){
+    if(abs(Goal.x -160) < HORZ_RANGE){//center
+        if(robot.robot_heading < 80){
+          offset = p_control * 20;
+        }
+        if(robot.robot_heading > 100){
+          offset = -p_control * 20;
+        }
+        robot.def_pos = 0;
+      }
+      else if(Goal.x > 160 + HORZ_RANGE){//right
+        offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
+        robot.def_pos = 1;
+      }
+      else if(Goal.x < 160 - HORZ_RANGE){//left
+        offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
+        robot.def_pos = -1;
+      }
+      else if(Goal.x > 160 + HORZ_RANGE + STOP_OFFSET){//right limit
+        offset = -p_control * abs(Goal.x - (HORZ_RANGE + 160));
+        robot.def_pos = 2;
+      }
+      else if(Goal.x < 160 - HORZ_RANGE - STOP_OFFSET){//left limit
+        offset = p_control * abs(Goal.x - (HORZ_RANGE -160)); 
+        robot.def_pos = -2;
+      }
+      robot.robot_heading += offset;
+      if(gyroData.heading > 30){
+        robot.robot_heading = 60;
+      } 
+      if(gyroData.heading < -30){
+        robot.robot_heading = 120;
+      }
   }
 }
 
@@ -173,14 +184,10 @@ void defense_main(){
 
   Serial.printf("Bool: %d, %d, %d\n", Goal.exist, Ball.exist, lineData.exist);
   // 1. Determine State (Simplified Logic)
-  
-  if (!Goal.exist && !Ball.exist && !lineData.exist) {
-      robot_state = OFFENSE;
-  } 
-  else if (lineData.exist && (Ball.exist || !Goal.exist)) {
+  if (lineData.exist && (Ball.exist || !Goal.exist)) {
       robot_state = DEFENSE;
   } 
-  else {
+  if(!lineData.exist){
       robot_state = BACK_TO_PENALTY;
   }
   // 2. Execute Action
@@ -194,13 +201,13 @@ void defense_main(){
             robot.vy = MAX_VY;
         }
         else if(!((lineData.state >> 3) & 1) ||!((lineData.state >> 5) & 1)){
-            robot.vy = MAX_VY*0.8;
-        }
-        else if(!((lineData.state >> 2) & 1 )|| !((lineData.state >> 6) & 1)){
             robot.vy = MAX_VY*0.7;
         }
+        else if(!((lineData.state >> 2) & 1 )|| !((lineData.state >> 6) & 1)){
+            robot.vy = MAX_VY*0.5;
+        }
         else if(!((lineData.state >> 1) & 1 )|| !((lineData.state >> 7) & 1)){
-            robot.vy = MAX_VY*0.55;
+            robot.vy = MAX_VY*0.3;
         }
         else if(!((lineData.state >> 0) & 1 )|| !((lineData.state >> 8) & 1)){
             robot.vy = MAX_VY*0;
@@ -210,13 +217,13 @@ void defense_main(){
             robot.vy = -MAX_VY;
         }
         else if(!(lineData.state >> 12) & 1 || !(lineData.state >> 14) & 1){
-            robot.vy = -MAX_VY*0.8;
-        }
-        else if(!((lineData.state >> 11) & 1) || !((lineData.state >> 15) & 1)){
             robot.vy = -MAX_VY*0.7;
         }
+        else if(!((lineData.state >> 11) & 1) || !((lineData.state >> 15) & 1)){
+            robot.vy = -MAX_VY*0.5;
+        }
         else if(!((lineData.state >> 10) & 1 )|| !((lineData.state >> 16) & 1)){
-            robot.vy = -MAX_VY*0.55;
+            robot.vy = -MAX_VY*0.3;
         }
         else if(!((lineData.state >> 9) & 1 )|| !((lineData.state >> 17) & 1)){
             robot.vy = -MAX_VY*0;
@@ -225,30 +232,52 @@ void defense_main(){
         if(Ball.exist){
           //move right
           if(Ball.deg > 100 && Ball.deg < 270){
-            robot.vx = -MAX_VX;
+            robot.vx = -MAX_VX * abs(90 - (Ball.deg - 180)) * 0.01;
           }
-          if(Ball.deg < 80 || Ball.deg > 360){
-            robot.vx = MAX_VX;
-          }
-        }
-        if(robot.def_pos != 0){
-          if(robot.def_pos == 1){
-            if(robot.vx > 0){
-              robot.vx = robot.vx * SLOW_RATIO;
+          if(Ball.deg < 80 || Ball.deg > 270){
+            if(Ball.deg < 80){
+              robot.vx = MAX_VX * abs(90 - (Ball.deg - 0)) * 0.01;
+            }
+            else if(Ball.deg > 270){
+              robot.vx = MAX_VX * abs(90 - (Ball.deg - 270)) * 0.01;
             }
           }
-          else if(robot.def_pos == -1){
-            if(robot.vx < 0){
-              robot.vx = robot.vx * SLOW_RATIO;
+          else{
+            robot.vx = 0;
+          }
+          if(robot.def_pos != 0){
+            if(robot.def_pos == 1){
+              if(robot.vx > 0){
+                robot.vx = robot.vx * SLOW_RATIO;
+              }
+            }
+            else if(robot.def_pos == -1){
+              if(robot.vx < 0){
+                robot.vx = robot.vx * SLOW_RATIO;
+              }
+            }
+            if(robot.def_pos == 2){
+              if(robot.vx > 0){
+                robot.vx = -robot.vx * SLOW_RATIO;
+              }
+            }
+            else if(robot.def_pos == -2){
+              if(robot.vx < 0){
+                robot.vx = -robot.vx * SLOW_RATIO;
+              }
+            }
+            if(robot.vy < 0){
+              robot.vy = 0; 
             }
           }
-          if(robot.vy < 0){
-            robot.vy = 0;
-          } 
-        }
+        } 
         //robot.robot_heading = 90;
         //robot.vx = 0;
         //robot.vy = 0;
+        robot.robot_heading = 90;
+        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
+        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
+        FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);        
         break;
       case BACK_TO_PENALTY:
         Serial.println("BACK");
@@ -260,16 +289,15 @@ void defense_main(){
             robot.vy = -MAX_VY;
           }
         }
+        Serial.printf("defPos%d Goal%d Ball%d\n", robot.def_pos, Goal.x, Ball.deg);
+        Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
+        FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);
         break;
       case OFFENSE:
           // Idle
           break;
           
     }
-  Serial.printf("\nRobot pose: %d, %d, %f\nd", robot.vx, robot.vy, robot.robot_heading);
-  robot.robot_heading = 90;
-  FC_Vector_Motion(robot.vx, robot.vy, robot.robot_heading);
-      
 }
 
 
