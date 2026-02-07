@@ -243,10 +243,10 @@ void defense_main(){
           if(robot.def_pos != 0){
             // 3. Apply Boundary Constraints (The "Weird Movement" Fix)
             if(robot.def_pos == 1 && robot.vx > 0) {
-                robot.vx *= SLOW_RATIO; // Slow down if heading further right
+                robot.vx = robot.vx * SLOW_RATIO; // Slow down if heading further right
             }
             else if(robot.def_pos == -1 && robot.vx < 0) {
-                robot.vx *= SLOW_RATIO; // Slow down if heading further left
+                robot.vx = robot.vx * SLOW_RATIO; // Slow down if heading further left
             }
             
             // Hard stops at the very edge of the goal
