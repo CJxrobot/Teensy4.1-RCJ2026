@@ -1,10 +1,17 @@
 #include "sub_core.h"
 
-LineData line;
-RobotMovement move;
+// 1. Define the actual memory for these variables here
+LineData line; 
+GyroData gyroData;       
+RobotStatus robot;
+MainCoreCommand mainCommand;
 uint16_t avg_ls[32];
 
 void sub_core_init() {
+    Serial8.begin(115200); // For communication with MainCore
+    Serial2.begin(115200); // For gyro sensor
+    Serial.begin(115200);  // For debugging
+
     // Multiplexer Control
     pinMode(s0, OUTPUT);
     pinMode(s1, OUTPUT);
@@ -14,17 +21,24 @@ void sub_core_init() {
     pinMode(M2, INPUT_PULLDOWN);
 
     // Motor Initialization
-    uint8_t motorPins[] = {pwmPin1, DIRA_1, DIRB_1, pwmPin2, DIRA_2, DIRB_2, 
-                           pwmPin3, DIRA_3, DIRB_3, pwmPin4, DIRA_4, DIRB_4};
-    for(uint8_t p : motorPins) pinMode(p, OUTPUT);
+    // Motor 1
+    pinMode(pwmPin1, OUTPUT);
+    pinMode(DIRA_1, OUTPUT);
+    pinMode(DIRB_1, OUTPUT);
+    // Motor 2
+    pinMode(pwmPin2, OUTPUT);
+    pinMode(DIRA_2, OUTPUT);
+    pinMode(DIRB_2, OUTPUT);
+    // Motor 3
+    pinMode(pwmPin3, OUTPUT);
+    pinMode(DIRA_3, OUTPUT);
+    pinMode(DIRB_3, OUTPUT);
+    // Motor 4
+    pinMode(pwmPin4, OUTPUT);
+    pinMode(DIRA_4, OUTPUT);
+    pinMode(DIRB_4, OUTPUT);
 
-    // Buttons
-    pinMode(BTN_UP, INPUT_PULLUP);
-    pinMode(BTN_DOWN, INPUT_PULLUP);
-    pinMode(BTN_ENTER, INPUT_PULLUP);
-    pinMode(BTN_ESC, INPUT_PULLUP);
-
-    EEPROM.begin(64); 
+    EEPROM.begin();
     EEPROM.get(0, avg_ls);
 }
 
@@ -37,37 +51,19 @@ int readMux(int ch, int sig) {
     return analogRead(sig);
 }
 
-void updateLine() {
-    float sx = 0, sy = 0;
-    int count = 0;
-    line.state = 0;
-
+void update_line_sensor(){
     for (int i = 0; i < 32; i++) {
         int val = readMux(i % 16, (i < 16) ? M1 : M2);
         if (val > avg_ls[i]) {
             line.state |= (1UL << i);
-            float rad = i * 0.19635f; 
-            sx += cos(rad);
-            sy += sin(rad);
-            count++;
         }
-    }
-
-    line.active = (count > 0);
-    if (line.active) {
-        move.vx = sx / count;
-        move.vy = sy / count;
-        move.deg = atan2(sy, sx) * 57.29578f;
-        if (move.deg < 0) move.deg += 360.0f;
-    } else {
-        move.vx = 0; move.vy = 0;
     }
 }
 
-void readBNO085Yaw(){
+void update_gyro_sensor(){
   const int PACKET_SIZE = 19;
   uint8_t buffer[PACKET_SIZE];
-  gyroData.valid = false; // Reset flag before read attempt
+  gyroData.exist = false; // Reset flag before read attempt
 
   while (Serial2.available() >= PACKET_SIZE){
     buffer[0] = Serial2.read();
@@ -103,7 +99,7 @@ void readBNO085Yaw(){
     // Convert to degrees if within range
     if(abs(yaw_raw) <= 18000){
       gyroData.heading = yaw_raw * 0.01f;
-      gyroData.valid = true;
+      gyroData.exist = true;
     }
     
     if(abs(pitch_raw) <= 18000){
@@ -115,9 +111,18 @@ void readBNO085Yaw(){
 
 void calibrate() {
     uint16_t max_ls[32], min_ls[32];
-    for (int i = 0; i < 32; i++) { max_ls[i] = 0; min_ls[i] = 4095; }
+    for (int i = 0; i < 32; i++) { 
+        max_ls[i] = 0; 
+        min_ls[i] = 4095; 
+    }
 
-    while (!(Serial8.available() && Serial8.read() == 'E')) {
+    while (1) {
+        if(Serial8.available()){
+            uint8_t cmd = Serial8.read();
+            if(cmd == LS_CAL_END){ // End calibration command
+                break;
+            }
+        }
         for (int i = 0; i < 32; i++) {
             int r = readMux(i % 16, (i < 16) ? M1 : M2);
             if (r > max_ls[i]) max_ls[i] = r; 
@@ -127,10 +132,7 @@ void calibrate() {
 
     for (int i = 0; i < 32; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
     EEPROM.put(0, avg_ls);
-    #if defined(ESP32)
-    EEPROM.commit();
-    #endif
-    Serial8.print('D');
+    Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
 }
 
 /* --- Actuators Part --- */
@@ -167,9 +169,9 @@ void RobotIKControl(float vx, float vy, float omega) {
     SetMotorSpeed(4, p4);
 }
 
-void Vector_Motion(float Vx, float Vy) {  
-    float current_gyro_heading = 90.0f - gyroData.heading;
-    float e = robot.robot_heading - current_gyro_heading;
+void Vector_Motion(float Vx, float Vy, int rot_V) {  
+    robot.robot_heading += rot_V; // Update target heading based on input
+    float e = robot.robot_heading - (90.0f - gyroData.heading);
 
     // Normalize error (-180 to 180)
     while (e > 180) e -= 360;
@@ -198,4 +200,25 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading) {
     float omega = (fabs(e) > robot.heading_threshold) ? (e * robot.P_factor) : 0;
 
     RobotIKControl(robot_vx, robot_vy, omega);
+}
+
+
+uint32_t readfrom_MainCore(){
+    if(Serial8.available()){
+        uint8_t datapacket[4] = {0};
+        for(int i = 0; i < 4; i++){
+            datapacket[i] = Serial8.read();
+        }
+        if(datapacket[0] == ACT_START){ // Actuation command
+            mainCommand.type = MainCoreCommand::ACTUATE;
+            mainCommand.vx = (int8_t)datapacket[1]; // Signed value
+            mainCommand.vy = (int8_t)datapacket[2]; // Signed value
+            mainCommand.deg = (float)datapacket[3]; // Degree input
+        } 
+        else if(datapacket[0] == LS_CAL_START){ // Start calibration
+            mainCommand.type = MainCoreCommand::CALIBRATE;
+        } 
+    }
+    // Placeholder for actual inter-core communication logic
+    return 0; // Return dummy data for now
 }

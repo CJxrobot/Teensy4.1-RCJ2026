@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <math.h>
+#include <Dual_Core_Config.h>
 
 // --- Multiplexer Pins ---
 #define s0 A2
@@ -32,40 +34,60 @@
 #define DIRA_4  6
 #define DIRB_4  9
 
-// --- Button Pins ---
-#define BTN_UP    32
-#define BTN_DOWN  33
-#define BTN_ENTER 34
-#define BTN_ESC   35
-
-// --- Configuration Constants ---
-#define MAX_V 100 // Adjust this based on your speed requirements
 
 // --- Data Structures ---
+
+struct MainCoreCommand {
+    float vx = 0.0f;
+    float vy = 0.0f;
+    float deg = 0.0f;
+    enum command_type {ACTUATE, CALIBRATE} type;
+};
+
 struct LineData {
-    uint32_t state;
-    bool active;
+    uint32_t state = 0;
+    bool active = false;
 };
 
-struct RobotMovement {
-    float vx, vy, deg;
+struct GyroData {
+    float heading = 0.0f;
+    float pitch = 0.0f;
+    bool exist = false;
 };
 
-// --- Global Variables (Externs) ---
-extern LineData line;
-extern RobotMovement move;
-extern uint16_t avg_ls[32];
+// Robot global configuration and tuning parameters
+struct RobotStatus {
+    float robot_heading = 90.0f;      // Target heading
+    float P_factor = 0.7f;            // Proportional gain for rotation
+    float heading_threshold = 10.0f;  // Deadband (degrees)
+    int8_t def_pos = 0;               // Default position state
+    bool picked_up = false;           // Lift detection flag
+};
+
+
+
+// --- Global Variable Declarations (Externs) ---
+extern LineData line;           
+extern MainCoreCommand mainCommand; // Added for MainCoreCommand usage  
+extern GyroData gyroData;       
+extern RobotStatus robot;        // Added to match Vector_Motion usage
+extern uint16_t avg_ls[32];     
 
 // --- Core Function Prototypes ---
 void sub_core_init();
 int  readMux(int ch, int sig);
-void updateLine();
+void update_line_sensor();
+void update_gyro_sensor();
 void calibrate();
 
 // --- Actuators & IK Prototypes ---
 void SetMotorSpeed(uint8_t port, float speed);
 void RobotIKControl(float vx, float vy, float omega);
-void Vector_Motion(float Vx, float Vy);
+void Vector_Motion(float Vx, float Vy, int rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
+
+// Dual Core Communication Prototypes
+void sendToCore2();
+uint32_t readfrom_MainCore();
 
 #endif
