@@ -375,55 +375,6 @@ void MotorStop(){
   analogWrite(pwmPin4, 0);
 }
 
-void RobotIKControl(int8_t vx, int8_t vy, float omega){
-  // Note: Cast omega to int8_t for consistent data types in the IK control matrix
-
-    int8_t p1 = (int8_t)(-0.643 * vx + 0.766 * vy + omega);
-    int8_t p2 = (int8_t)(-0.643 * vx - 0.766 * vy + omega);
-    int8_t p3 = (int8_t)( 0.707 * vx - 0.707 * vy + omega);
-    int8_t p4 = (int8_t)( 0.707 * vx + 0.707 * vy + omega);
-    SetMotorSpeed(1, p1);
-    SetMotorSpeed(2, p2);
-    SetMotorSpeed(3, p3);
-    SetMotorSpeed(4, p4);
-}
-
-void Vector_Motion(float Vx, float Vy){  
-  float omega = 0.0;
-  float current_gyro_heading = gyroData.heading;
-  float sensor_heading = 90.0 - current_gyro_heading;
-  float e = robot.robot_heading - sensor_heading;
-  if(fabs(e) > robot.heading_threshold){
-      omega = e * robot.P_factor * 0.5;
-  }
-  RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
-}
-
-void FC_Vector_Motion(int WVx, int WVy, float target_heading) {
-    // 1. Convert gyro to Radians (math functions use radians)
-    float rad = (target_heading-90)* (M_PI / 180.0);
-    float cos_h = cos(rad);
-    float sin_h = sin(rad);
-
-    // 2. Rotate World Vectors to Robot Frame
-    int8_t robot_vx = (int8_t)(WVx * cos_h + WVy * sin_h);
-    int8_t robot_vy = (int8_t)(-WVx * sin_h + WVy * cos_h);
-    //Serial.printf("robot %d, %d\n", robot_vx, robot_vy);
-    // 3. Calculate Heading Correction (Omega)
-    float omega = 0;
-    float current_gyro_heading = 90 - gyroData.heading;
-    // Normalize error to find the shortest path to target_heading
-    float e = target_heading - current_gyro_heading;
-    while (e > 180) e -= 360;
-    while (e < -180) e += 360;
-
-    if (fabs(e) > robot.heading_threshold) {
-        omega = e * robot.P_factor ;
-    }
-    //Serial.printf("omege%d\n", omega);
-    // 4. Send to IK Control
-    RobotIKControl(robot_vx, robot_vy, (int8_t)omega);
-}
 
 void Degree_Motion(float moving_degree, int8_t speed){
   if(moving_degree > 360.0 || moving_degree < 0.0){
