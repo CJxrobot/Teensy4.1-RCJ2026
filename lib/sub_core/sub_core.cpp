@@ -47,8 +47,13 @@ int readMux(int ch, int sig) {
     digitalWrite(s1, (ch >> 1) & 1);
     digitalWrite(s2, (ch >> 2) & 1);
     digitalWrite(s3, (ch >> 3) & 1);
-    delayMicroseconds(20);
-    return analogRead(sig);
+    delayMicroseconds(10);
+    if(sig == 1){
+        return analogRead(M1);
+    }
+    if(sig == 2){
+        return analogRead(M2);
+    }
 }
 
 void update_line_sensor(){
