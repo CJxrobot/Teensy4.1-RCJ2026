@@ -14,25 +14,26 @@
 #define M1 A0
 #define M2 A1
 
-// --- Motor 1 Pins ---
-#define pwmPin1 10
-#define DIRA_1  11
-#define DIRB_1  12
+// Motor 4 Pins
+#define pwmPin1 2    // PWM 控制腳
+#define DIRA_1 4   // 方向控制腳1
+#define DIRB_1 3
 
-// --- Motor 2 Pins ---
-#define pwmPin2 2
-#define DIRA_2  3
-#define DIRB_2  4
+// Motor 3 Pins
+#define pwmPin2 10    // PWM 控制腳
+#define DIRA_2 12   // 方向控制腳1
+#define DIRB_2 11
 
-// --- Motor 3 Pins ---
-#define pwmPin3 23
-#define DIRA_3  36
-#define DIRB_3  37
+// Motor 2 Pins
+#define pwmPin3 5    // PWM 控制腳
+#define DIRA_3 9   // 方向控制腳1
+#define DIRB_3 6
 
-// --- Motor 4 Pins ---
-#define pwmPin4 5
-#define DIRA_4  6
-#define DIRB_4  9
+// Motor 1 Pins
+#define pwmPin4 23  // PWM 控制腳
+#define DIRA_4 37    // 方向控制腳1
+#define DIRB_4 36 
+
 
 
 // --- Data Structures ---
