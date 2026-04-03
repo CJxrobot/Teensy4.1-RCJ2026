@@ -145,7 +145,8 @@ void calibrate() {
 void SetMotorSpeed(uint8_t port, float speed) {
     // Constrain speed to prevent PWM overflow
     speed = constrain(speed, -255, 255); 
-    int pwmVal = abs((int)speed);
+    //int pwmVal = abs((int)speed);
+    int pwmVal = abs(speed) * 255 / 100;
 
     uint8_t p_pwm, p_a, p_b;
     switch(port) {
