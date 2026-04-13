@@ -13,16 +13,22 @@
 #define OLED_RESET -1
 
 // --- Button Pins ---
-#define BTN_UP    32
-#define BTN_DOWN  33
-#define BTN_ENTER 34
-#define BTN_ESC   35
+#define BTN_UP 31
+#define BTN_DOWN 30
+#define BTN_ENTER 27
+#define BTN_ESC 26
 
-// --- UI / Menu Globals (Externs) ---
-extern int _page;
-extern int _cursor;
-extern unsigned long _lastPress;
-extern unsigned long _lastUpdate;
+// --- Ultrasonic ---
+#define front_us A15
+#define left_us A14
+#define back_us A16
+#define right_us A17
+#define alpha 0.75
+
+
+extern struct CamData{uint16_t ball_x = 65535;uint16_t ball_y = 65535;uint16_t ball_w = 65535;uint16_t ball_h = 65535; bool ball_valid = false;uint16_t goal_x = 65535;uint16_t goal_y = 65535;uint16_t goal_w = 65535;uint16_t goal_h = 65535; bool  goal_valid = false;} camData;
+extern struct BallData{uint16_t dist = 255; uint16_t angle = 255; uint16_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
+extern struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
 
 // --- OLED Instance (Extern) ---
 extern Adafruit_SSD1306 display;
