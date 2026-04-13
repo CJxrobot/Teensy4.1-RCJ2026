@@ -6,10 +6,6 @@ unsigned long displayTimer = 0;
 
 void setup() {
     main_core_init(); // Init OLED/Serials
-    
-    pinMode(BTN_ENTER, INPUT_PULLUP);
-    pinMode(BTN_ESC, INPUT_PULLUP);
-    
     drawMessage("READY");
 }
 
