@@ -16,18 +16,18 @@
 
 // Motor 4 Pins
 #define pwmPin1 2    // PWM 控制腳
-#define DIRA_1 4   // 方向控制腳1
-#define DIRB_1 3
+#define DIRA_1 3   // 方向控制腳1
+#define DIRB_1 4
 
 // Motor 3 Pins
 #define pwmPin2 10    // PWM 控制腳
-#define DIRA_2 12   // 方向控制腳1
-#define DIRB_2 11
+#define DIRA_2 11   // 方向控制腳1
+#define DIRB_2 12
 
 // Motor 2 Pins
 #define pwmPin3 5    // PWM 控制腳
-#define DIRA_3 9   // 方向控制腳1
-#define DIRB_3 6
+#define DIRA_3 6   // 方向控制腳1
+#define DIRB_3 9
 
 // Motor 1 Pins
 #define pwmPin4 23  // PWM 控制腳
@@ -84,7 +84,7 @@ void calibrate();
 // --- Actuators & IK Prototypes ---
 void SetMotorSpeed(uint8_t port, float speed);
 void RobotIKControl(float vx, float vy, float omega);
-void Vector_Motion(float Vx, float Vy, int rot_V);
+void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
 
 // Dual Core Communication Prototypes

@@ -14,18 +14,8 @@ void setup(){
 }
 
 void loop(){
-  Serial.print("0:");
-  Serial.println(readMux(0, 1));
-  Serial.print("15:");
-  Serial.println(readMux(15, 1));
-   Serial.print("16:");
-  Serial.println(readMux(0, 2));
-  //delay(1000);
-  //Serial.print("15:");
-  //Serial.println(readMux(15, M1));
-  Serial.print("31:");
-  Serial.println(readMux(15, 2));
-  delay(1000);
+  update_gyro_sensor();
+  Vector_Motion(0,0,0);
 }
 /*
 void loop(){

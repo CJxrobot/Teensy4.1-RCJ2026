@@ -175,8 +175,16 @@ void RobotIKControl(float vx, float vy, float omega) {
     SetMotorSpeed(4, p4);
 }
 
-void Vector_Motion(float Vx, float Vy, int rot_V) {  
+void Vector_Motion(float Vx, float Vy, float rot_V) {  
     robot.robot_heading += rot_V; // Update target heading based on input
+    if(robot.robot_heading > 135){
+      robot.robot_heading =  135;  
+    }
+    else if(robot.robot_heading < 45){
+      robot.robot_heading = 45;  
+    }
+    Serial.printf("robot.robot_heading%f\n",robot.robot_heading);
+    
     float e = robot.robot_heading - (90.0f - gyroData.heading);
 
     // Normalize error (-180 to 180)
