@@ -4,6 +4,7 @@
 // --- Sensor Data ---
 CamData camData;
 BallData ballData;
+USSensor usData;
 
 
 // --- OLED OBJECT ---
@@ -106,7 +107,7 @@ void kicker_control(bool kick) {
     }
 }
 
-void read_BallCam() {
+void readBallCam() {
     static uint16_t buffer[6] = {0};
     static uint16_t idx = 0;
     while(Serial4.available()){
@@ -133,7 +134,7 @@ void read_BallCam() {
     }
 }
 
-void read_FrontCam() {
+void readFrontCam() {
     static uint8_t buffer[20];
     static uint8_t index = 0;
     while (Serial5.available()){

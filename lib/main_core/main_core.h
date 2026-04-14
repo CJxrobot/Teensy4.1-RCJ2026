@@ -36,10 +36,9 @@ extern Adafruit_SSD1306 display;
 // --- Function Prototypes ---
 void main_core_init();
 void drawMessage(const char* msg);
-void updateMenu();        // Logic for button presses
-void displayInterface();  // Logic for drawing the screen
-void readCameraData();
 void readBallCam();
+void readFrontCam();
+void readussensor();
 void kicker_control(bool kick);
 void localization();
 
