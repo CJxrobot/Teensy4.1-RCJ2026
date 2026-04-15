@@ -5,18 +5,20 @@ void c_mode_main_function();
 void t_mode_main_function();
 
 // Toggle these as needed
-#define T_MODE
-//#define C_MODE
+#define T_MODE 0x1E
+//#define C_MODE 0x1C
 
 void setup() {
     main_core_init(); 
     
     #ifdef C_MODE
-        drawMessage("C Mode Locked");
+        drawMessage("C Mode Locked",);
+        Serial8.write(C_MODE);
     #endif
     
     #ifdef T_MODE
         drawMessage("T Mode Locked");
+        Serial8.write(T_MODE);
     #endif
 }
 
