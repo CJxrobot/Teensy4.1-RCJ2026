@@ -10,7 +10,8 @@ USSensor usData;
 // --- OLED OBJECT ---
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-
+enum RobotState { STATE_READY, STATE_CALIBRATING, STATE_SAVING };
+RobotState currentState = STATE_READY;
 // --- Kicker Constants ---
 #define Charge_Pin 24 // Update to your actual pins
 #define Kicker_Pin 25
@@ -201,4 +202,118 @@ void readussensor(){
     usData.dist_l = dist_l_f;
     usData.dist_r = dist_r_f;
     usData.dist_f = dist_f_f;
+}
+
+
+bool UI_Interface(){
+    readussensor();
+
+    readBallCam();
+
+    static uint32_t lastDisplayTime = 0;
+
+    Serial.println("running");
+
+    switch (currentState) {
+
+        case STATE_READY:
+
+            if (digitalRead(BTN_ENTER) == LOW) {
+
+                Serial8.write(LS_CAL_START); // Command to Sensor Board
+
+                drawMessage("SCANNING");
+
+                currentState = STATE_CALIBRATING;
+
+                delay(200);
+
+            }
+
+            if (millis() - lastDisplayTime > 100) { // 每 0.1 秒更新一次螢幕
+
+                display.clearDisplay();
+
+                display.setTextSize(1);
+
+                display.setTextColor(SSD1306_WHITE);
+
+                
+
+                // 顯示指南針 (Heading) 輔助確認感測器是否正常
+
+                display.setCursor(0, 10);
+
+                //display.printf("pitch: %.1f", gyroData.pitch);
+
+                display.printf("angle: %d\n", ballData.angle);
+
+                display.setCursor(0, 25);
+
+                //display.printf("pitch: %.1f", gyroData.pitch);
+
+                display.printf("dist: %d\n", ballData.dist);
+
+                display.display();
+
+                lastDisplayTime = millis();
+
+            }
+            if(digitalRead(BTN_UP) == LOW){
+                return false;
+            }
+            //offense
+
+            //defense
+
+            break;
+
+
+
+        case STATE_CALIBRATING:
+
+            if (digitalRead(BTN_ESC) == LOW) {
+
+                Serial8.write(LS_CAL_END); // Command to Save
+
+                drawMessage("SAVING...");
+
+                currentState = STATE_SAVING;
+
+                delay(200);
+
+            }
+
+            break;
+
+
+
+        case STATE_SAVING:
+
+            if(Serial8.available()){
+
+                uint8_t c = Serial8.read();
+
+                if(c == 0xDD){
+
+                    drawMessage("SAVED!");
+
+                    delay(1000); // 讓 SAVED 停一下
+
+                }
+
+                    // 回到初始狀態
+
+                drawMessage("READY");
+
+                delay(200);
+
+                display.clearDisplay();
+
+                currentState = STATE_READY;
+
+            }
+            break;
+    }
+    return true;
 }

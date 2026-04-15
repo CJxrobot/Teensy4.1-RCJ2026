@@ -40,6 +40,7 @@ void readBallCam();
 void readFrontCam();
 void readussensor();
 void kicker_control(bool kick);
+bool UI_Interface();
 void localization();
 
 #endif

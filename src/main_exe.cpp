@@ -1,60 +1,55 @@
 #include "main_core.h"
 
-enum RobotState { STATE_READY, STATE_CALIBRATING, STATE_SAVING };
-RobotState currentState = STATE_READY;
-unsigned long displayTimer = 0;
+// 1. FUNCTION PROTOTYPES (Tells the compiler these exist later)
+void c_mode_main_function();
+void t_mode_main_function();
+
+// Toggle these as needed
+#define T_MODE
+//#define C_MODE
 
 void setup() {
-    main_core_init(); // Init OLED/Serials
-    drawMessage("READY");
+    main_core_init(); 
+    
+    #ifdef C_MODE
+        drawMessage("C Mode Locked");
+    #endif
+    
+    #ifdef T_MODE
+        drawMessage("T Mode Locked");
+    #endif
 }
 
 void loop() {
-    readussensor();
-    readBallCam();
+    // Wait for UI to finish
+    while(UI_Interface()); 
+
+    // The code only reaches here AFTER UI_Interface() returns false
+    #ifdef C_MODE
+    c_mode_main_function();
+    #endif
     
-    static uint32_t lastDisplayTime = 0;
-    static uint32_t stateTimer = 0; // For non-blocking state durations
+    #ifdef T_MODE
+    t_mode_main_function();
+    #endif
+}
 
-    switch (currentState) {
-        case STATE_READY:
-            if (digitalRead(BTN_ENTER) == LOW) {
-                Serial8.write(LS_CAL_START);
-                drawMessage("SCANNING");
-                currentState = STATE_CALIBRATING;
-            }
+// --- Main Logic Functions ---
 
-            // Non-blocking display update
-            if (millis() - lastDisplayTime > 100) {
-                updateReadyDisplay(); // Move display logic to a function to keep loop clean
-                lastDisplayTime = millis();
-            }
-            break;
+void c_mode_main_function() {
+    Serial.println("Cmode Started");
+    while(1) {
+        readussensor(); // Keep updating sensors!
+        readBallCam();
+        // Add logic here
+    }
+}
 
-        case STATE_CALIBRATING:
-            if (digitalRead(BTN_ESC) == LOW) {
-                Serial8.write(LS_CAL_END);
-                drawMessage("SAVING...");
-                stateTimer = millis(); // Start timeout timer
-                currentState = STATE_SAVING;
-            }
-            break;
-
-        case STATE_SAVING:
-            // Check for response OR timeout (2 seconds)
-            if (Serial8.available()) {
-                uint8_t c = Serial8.read();
-                if (c == 0xDD) {
-                    drawMessage("SAVED!");
-                    stateTimer = millis(); // Reuse timer to show "SAVED" for a moment
-                }
-            }
-
-            // Return to READY after 1 second of showing "SAVED" or if 2s timeout hits
-            if (millis() - stateTimer > 2000) {
-                drawMessage("READY");
-                currentState = STATE_READY;
-            }
-            break;
+void t_mode_main_function() {
+    Serial.println("Tmode Started");
+    while(1) {
+        readussensor(); // Keep updating sensors!
+        readBallCam();
+        // Add logic here
     }
 }
