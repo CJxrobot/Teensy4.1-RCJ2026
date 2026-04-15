@@ -1,3 +1,14 @@
+#include "main_core.h"
+
+enum RobotState { STATE_READY, STATE_CALIBRATING, STATE_SAVING };
+RobotState currentState = STATE_READY;
+unsigned long displayTimer = 0;
+
+void setup() {
+    main_core_init(); // Init OLED/Serials
+    drawMessage("READY");
+}
+
 void loop() {
     readussensor();
     readBallCam();
