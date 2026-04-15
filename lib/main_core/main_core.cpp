@@ -180,6 +180,51 @@ void readFrontCam() {
     }
 }
 
+void readussensor() {
+    static uint32_t lastSampleTime = 0;
+    static int sensorIdx = 0;      // 當前輪到的傳感器 (0:back, 1:left, 2:right, 3:front)
+    static int sampleIdx = 0;      // 當前採樣次數 (0, 1, 2)
+    static int samples[4][3];      // 儲存 4 個傳感器各自的 3 次採樣值
+    
+    const uint32_t sampleInterval = 20; // 每 20ms 採樣一次樣本
+    const float alpha = 0.8f;
+
+    // 1. 非阻塞時間檢查
+    if (millis() - lastSampleTime < sampleInterval) return;
+    lastSampleTime = millis();
+
+    // 2. 獲取當前傳感器引腳
+    int pins[] = {back_us, left_us, right_us, front_us};
+    float* targetData[] = {&usData.dist_b, &usData.dist_l, &usData.dist_r, &usData.dist_f};
+
+    // 3. 讀取一個樣本並存入緩存
+    samples[sensorIdx][sampleIdx] = analogRead(pins[sensorIdx]);
+    sampleIdx++;
+
+    // 4. 當單個傳感器集齊 3 次採樣後，計算中值與濾波
+    if (sampleIdx >= 3) {
+        int s1 = samples[sensorIdx][0];
+        int s2 = samples[sensorIdx][1];
+        int s3 = samples[sensorIdx][2];
+
+        // 三點取中值
+        float median;
+        if ((s1 <= s2 && s2 <= s3) || (s3 <= s2 && s2 <= s1)) median = s2;
+        else if ((s2 <= s1 && s1 <= s3) || (s3 <= s1 && s1 <= s2)) median = s1;
+        else median = s3;
+
+        // 物理轉換
+        float dist_raw = median * 520.0f / 1024.0f;
+
+        // 一階低通濾波
+        *targetData[sensorIdx] = (alpha * (*targetData[sensorIdx])) + ((1.0f - alpha) * dist_raw);
+
+        // 重置採樣計數，切換到下一個傳感器
+        sampleIdx = 0;
+        sensorIdx = (sensorIdx + 1) % 4; 
+    }
+}
+/*
 void readussensor(){
     // static variables remember their values between calls
     static float dist_b_f = 0.0f;
@@ -203,7 +248,7 @@ void readussensor(){
     usData.dist_r = dist_r_f;
     usData.dist_f = dist_f_f;
 }
-
+*/
 
 bool UI_Interface(){
     readussensor();
