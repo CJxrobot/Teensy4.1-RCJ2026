@@ -54,10 +54,10 @@ void main_core_init() {
     pinMode(BTN_ESC, INPUT_PULLUP);
 
     // Ultrasonic Sensor
-    pinMode(front_us, INPUT);
-    pinMode(back_us, INPUT);
-    pinMode(left_us, INPUT);
-    pinMode(right_us, INPUT);
+    pinMode(front_us, INPUT_DISABLE);
+    pinMode(back_us, INPUT_DISABLE);
+    pinMode(left_us, INPUT_DISABLE);
+    pinMode(right_us, INPUT_DISABLE);
 }
 
 void drawMessage(const char* msg) {
