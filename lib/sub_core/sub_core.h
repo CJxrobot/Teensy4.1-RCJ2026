@@ -79,7 +79,7 @@ void sub_core_init();
 int  readMux(int ch, int sig);
 void update_line_sensor();
 void update_gyro_sensor();
-void calibrate();
+void line_calibrate();
 
 // --- Actuators & IK Prototypes ---
 void SetMotorSpeed(uint8_t port, float speed);

@@ -15,7 +15,13 @@ void setup(){
 
 void loop(){
   update_gyro_sensor();
-  Vector_Motion(0,0,0);
+  if (Serial8.available()) {
+    uint8_t cmd = Serial8.read();
+    //Serial.print(cmd);
+    if (cmd == LS_CAL_START) {
+      line_calibrate(); // 進入校準模式
+    }
+  }
 }
 /*
 void loop(){

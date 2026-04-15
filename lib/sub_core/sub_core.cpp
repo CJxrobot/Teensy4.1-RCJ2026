@@ -114,7 +114,7 @@ void update_gyro_sensor(){
   }
 }
 
-void calibrate() {
+void line_calibrate() {
     uint16_t max_ls[32], min_ls[32];
     for (int i = 0; i < 32; i++) { 
         max_ls[i] = 0; 
