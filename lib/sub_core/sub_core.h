@@ -41,8 +41,8 @@
 struct MainCoreCommand {
     float vx = 0.0f;
     float vy = 0.0f;
-    float deg = 0.0f;
-    enum command_type {ACTUATE, CALIBRATE} type;
+    float rot_v = 0.0f;
+    uint16_t heading = 0; // Target heading in degrees
 };
 
 struct LineData {

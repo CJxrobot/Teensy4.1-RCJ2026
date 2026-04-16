@@ -1,11 +1,32 @@
 #include <sub_core.h>
 uint8_t op_mode;
-void white_line_handle() {
-    if (line.active) {
-      Vector_Motion(0, 0, 0); // Stop if on line
-    } 
-    else {
-      Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.deg);
+
+void c_mode_main_function() {
+    Serial.println("Cmode Started");
+    while(1) {
+        update_line_sensor(); // Keep updating sensors!
+        update_gyro_sensor();
+        // Add logic here
+        ReadMainCoreCommand();
+        //White Line Handling Example
+        /*TODO*/
+        Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
+    }
+}
+
+void t_mode_main_function() {
+    Serial.println("Tmode Started");
+    while(1){
+      update_gyro_sensor();
+      update_line_sensor();
+      if(Serial8.available()) {
+        uint8_t cmd = Serial8.read();
+        if(cmd == SUBCORE_SENSOR_DATA){
+          sendGyroAndLineToMainCore();
+        }
+      }
+      ReadMainCoreCommand();
+      FC_Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.heading);
     }
 }
 
@@ -15,7 +36,7 @@ void setup(){
     if(Serial8.available()){
       op_mode = Serial8.read();
       if(op_mode == T_MODE_HEADER || op_mode == C_MODE_HEADER){
-        Seria8.write(ACT)
+        Serial8.write(ACT);
         break;
       }
     }
@@ -24,13 +45,25 @@ void setup(){
 
 void loop(){
   update_gyro_sensor();
-  if (Serial8.available()) {
-    uint8_t cmd = Serial8.read();
-    //Serial.print(cmd);
-    if (cmd == LS_CAL_START) {
-      line_calibrate(); // 進入校準模式
-    } n 
+  while(1){
+    if (Serial8.available()) {
+      uint8_t cmd = Serial8.read();
+      //Serial.print(cmd);
+      if (cmd == LS_CAL_START) {
+      }
+      else if (cmd == MOVE_CMD) {
+        Serial8.write(PROTOCAL_ACT);
+        break;
+      }
+    }
   }
+  if(op_mode == C_MODE_HEADER){
+    c_mode_main_function();
+  }
+  else if(op_mode == T_MODE_HEADER){
+    t_mode_main_function();
+  }
+  
 }
 /*
 void loop(){

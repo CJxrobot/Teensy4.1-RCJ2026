@@ -388,6 +388,18 @@ bool UI_Interface(){
     return true;
 }
 
+void writeMotorCommand(float vx, float vy, float rot_v, int target_heading){
+    uint8_t data[6];
+    data[0] = PROTOCAL_HEADER;
+    data[1] = (int8_t)(vx);
+    data[2] = (int8_t)(vy);
+    data[3] = (int8_t)(rot_v);
+    data[4] = (int8_t)(target_heading  / 10.0);
+    data[5] = PROTOCAL_END;
+    Serial.writebytes(data, sizeof(data));
+}   
+
+
 bool move_to(int pos_x, int pos_y){
     ;
     return true;

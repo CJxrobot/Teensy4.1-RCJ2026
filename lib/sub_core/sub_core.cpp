@@ -216,23 +216,45 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading) {
     RobotIKControl(robot_vx, robot_vy, omega);
 }
 
+void sendGyroAndLineToMainCore() {
+    uint8_t data[5];
+    data[0] = 0xBB; // Header
+    data[1] = (uint8_t)(gyroData.heading); // Gyro Heading (0-255)
+    data[2] = (uint8_t)(line.state & 0xFF); // Line Sensor State (lower 8 bits)
+    data[3] = (uint8_t)((line.state >> 8) & 0xFF); // Line Sensor State (upper 8 bits)
+    data[4] = 0xEE; // Footer
+    Serial8.write(data, sizeof(data));
+}
 
-uint32_t readfrom_MainCore(){
-    if(Serial8.available()){
-        uint8_t datapacket[4] = {0};
-        for(int i = 0; i < 4; i++){
-            datapacket[i] = Serial8.read();
+void readMotorCommand() {
+    if(Serial8.available()) {
+        // 1. Peek: "Is the first byte the header?"
+        if(Serial8.peek() != PROTOCOL_HEADER) {
+            
+            // 2. If NO: "This byte is trash. Throw it away."
+            Serial8.read(); 
+            
+            // 3. Continue: "Check the next byte immediately."
+            continue; 
         }
-        if(datapacket[0] == ACT){ // Actuation command
-            mainCommand.type = MainCoreCommand::ACTUATE;
-            mainCommand.vx = (int8_t)datapacket[1]; // Signed value
-            mainCommand.vy = (int8_t)datapacket[2]; // Signed value
-            mainCommand.deg = (float)datapacket[3]; // Degree input
-        } 
-        else if(datapacket[0] == LS_CAL_START){ // Start calibration
-            mainCommand.type = MainCoreCommand::CALIBRATE;
-        } 
+        // 4. If YES: "The header is at the front! Safe to read all 6 bytes now."
+        uint8_t buf[6];
+        for(int i = 0; i < 6; i++) {
+            buf[i] = Serial8.read();
+        }
+        if(buf[5] != PROTOCOL_END) {
+            // Footer check failed, discard and wait for next command
+            return;
+        }
+        int8_t vx = (int8_t)buf[1];
+        int8_t vy = (int8_t)buf[2];
+        int8_t rot_v = (int8_t)buf[3] * 0.01;
+        int8_t target_heading = (int8_t)buf[4] * 10;
+
+        // Convert back to float and degrees
+        mainCommand.vx = (float)vx;
+        mainCommand.vy = (float)vy;
+        mainCommand.rot_v = (float)rot_v;
+        mainCommand.heading = (uint16_t)target_heading * 10; // Assuming it was divided by 10 before sending
     }
-    // Placeholder for actual inter-core communication logic
-    return 0; // Return dummy data for now
 }

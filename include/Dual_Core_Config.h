@@ -1,18 +1,23 @@
 #ifndef DUAL_CORE_CONFIG_H
 #define DUAL_CORE_CONFIG_H
 
-#define LS_CAL_START 0xAA   // Start Calibration
-#define LS_CAL_END   0xEE   // End Calibration
-#define LS_CAL_ACK   0xDD   // Acknowledgment (Save Complete)
-#define ACT    0xCC   // Start Action/Match Mode
-#define T_MODE_HEADER 0x1E
-#define C_MODE_HEADER 0x1C
-
-
-
 // Toggle these as needed
 #define T_MODE
-//#define C_MODE 0x1C
+
+
+// Command List
+#define LS_CAL_START 0x65  // Start Calibration
+#define LS_CAL_END   0x66  // End Calibration
+#define LS_CAL_ACK   0x67  // Acknowledgment (Save Complete)
+#define MOVE_CMD     0x68  // Start Command
+#define SUBCORE_SENSOR_DATA 0x69  // Sub-core sends sensor data
+
+
+// Protocal
+#define PROTOCAL_HEDAER 0xBB   // Start Action/Match Mode
+#define PROTOCAL_HEDAER 0xEE   // Start Action/Match Mode
+#define PROTOCAL_ACT    0xCC   // Start Action/Match Mode
+
 
 
 // --- Configuration Constants ---
