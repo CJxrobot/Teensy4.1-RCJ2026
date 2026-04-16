@@ -223,7 +223,7 @@ uint32_t readfrom_MainCore(){
         for(int i = 0; i < 4; i++){
             datapacket[i] = Serial8.read();
         }
-        if(datapacket[0] == ACT_START){ // Actuation command
+        if(datapacket[0] == ACT){ // Actuation command
             mainCommand.type = MainCoreCommand::ACTUATE;
             mainCommand.vx = (int8_t)datapacket[1]; // Signed value
             mainCommand.vy = (int8_t)datapacket[2]; // Signed value

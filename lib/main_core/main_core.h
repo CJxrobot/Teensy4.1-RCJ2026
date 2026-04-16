@@ -23,12 +23,13 @@
 #define left_us A14
 #define back_us A16
 #define right_us A17
-#define alpha 0.75
+#define alpha 0.75  
 
 
 extern struct CamData{uint16_t ball_x = 65535;uint16_t ball_y = 65535;uint16_t ball_w = 65535;uint16_t ball_h = 65535; bool ball_valid = false;uint16_t goal_x = 65535;uint16_t goal_y = 65535;uint16_t goal_w = 65535;uint16_t goal_h = 65535; bool  goal_valid = false;} camData;
 extern struct BallData{uint16_t dist = 255; uint16_t angle = 255; uint16_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
 extern struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
+extern struct LineData{bool exist; uint32_t state;} lineData;
 
 // --- OLED Instance (Extern) ---
 extern Adafruit_SSD1306 display;

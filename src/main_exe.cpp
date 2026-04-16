@@ -4,22 +4,34 @@
 void c_mode_main_function();
 void t_mode_main_function();
 
-// Toggle these as needed
-#define T_MODE 0x1E
-//#define C_MODE 0x1C
-
 void setup() {
-    main_core_init(); 
-    
+    main_core_init();
+    uint8_t header = 0;
+
     #ifdef C_MODE
-        drawMessage("C Mode Locked",);
-        Serial8.write(C_MODE);
-    #endif
-    
-    #ifdef T_MODE
+        header = C_MODE_HEADER;
+        drawMessage("C Mode Locked");
+    #elif defined(T_MODE)
+        header = T_MODE_HEADER;
         drawMessage("T Mode Locked");
-        Serial8.write(T_MODE);
+    #else
+        header = C_MODE_HEADER;
+        drawMessage("Default");
     #endif
+
+    // Universal Handshake Loop
+    while(1) {
+        Serial8.write(header);
+        
+        // Wait a short moment for the sub-core to respond
+        delay(50); 
+        
+        if(Serial8.available() > 0) {
+            if(Serial8.read() == ACT) {
+                break; // Connection confirmed
+            }
+        }
+    }
 }
 
 void loop() {
@@ -28,11 +40,11 @@ void loop() {
 
     // The code only reaches here AFTER UI_Interface() returns false
     #ifdef C_MODE
-    c_mode_main_function();
+        c_mode_main_function();
     #endif
     
     #ifdef T_MODE
-    t_mode_main_function();
+        t_mode_main_function();
     #endif
 }
 

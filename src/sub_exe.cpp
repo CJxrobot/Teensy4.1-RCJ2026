@@ -1,5 +1,5 @@
 #include <sub_core.h>
-
+uint8_t op_mode;
 void white_line_handle() {
     if (line.active) {
       Vector_Motion(0, 0, 0); // Stop if on line
@@ -10,7 +10,16 @@ void white_line_handle() {
 }
 
 void setup(){
-  sub_core_init();  
+  sub_core_init();
+  while(1){
+    if(Serial8.available()){
+      op_mode = Serial8.read();
+      if(op_mode == T_MODE_HEADER || op_mode == C_MODE_HEADER){
+        Seria8.write(ACT)
+        break;
+      }
+    }
+  }
 }
 
 void loop(){
@@ -20,7 +29,7 @@ void loop(){
     //Serial.print(cmd);
     if (cmd == LS_CAL_START) {
       line_calibrate(); // 進入校準模式
-    }
+    } n 
   }
 }
 /*

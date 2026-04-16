@@ -5,7 +5,12 @@
 CamData camData;
 BallData ballData;
 USSensor usData;
+LineData lineData;
 
+struct Point {
+    float x;
+    float y;
+} targetPos;
 
 // --- OLED OBJECT ---
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -55,9 +60,9 @@ void main_core_init() {
 
     // Ultrasonic Sensor
     pinMode(front_us, INPUT_DISABLE);
-    pinMode(back_us, INPUT_DISABLE);
-    pinMode(left_us, INPUT_DISABLE);
-    pinMode(right_us, INPUT_DISABLE);
+    //pinMode(back_us, INPUT_DISABLE);
+    //pinMode(left_us, INPUT_DISABLE);
+    //pinMode(right_us, INPUT_DISABLE);
 }
 
 void drawMessage(const char* msg) {
@@ -181,88 +186,124 @@ void readFrontCam() {
 }
 
 void readussensor() {
-    static uint32_t lastSampleTime = 0;
-    static int sensorIdx = 0;      // 當前輪到的傳感器 (0:back, 1:left, 2:right, 3:front)
-    static int sampleIdx = 0;      // 當前採樣次數 (0, 1, 2)
-    static int samples[4][3];      // 儲存 4 個傳感器各自的 3 次採樣值
     
-    const uint32_t sampleInterval = 20; // 每 20ms 採樣一次樣本
-    const float alpha = 0.8f;
+    // 2. Timing control: Sequential reading (The "Better Break")
+    static uint32_t lastReadTime = 0;
+    static int sensorStep = 0;
+    const int pingInterval = 50; // 35ms break between sensors
 
-    // 1. 非阻塞時間檢查
-    if (millis() - lastSampleTime < sampleInterval) return;
-    lastSampleTime = millis();
+    // Static variables for low-pass filtering
+    static float dist_b_f, dist_l_f, dist_r_f, dist_f_f;
 
-    // 2. 獲取當前傳感器引腳
-    int pins[] = {back_us, left_us, right_us, front_us};
-    float* targetData[] = {&usData.dist_b, &usData.dist_l, &usData.dist_r, &usData.dist_f};
-
-    // 3. 讀取一個樣本並存入緩存
-    samples[sensorIdx][sampleIdx] = analogRead(pins[sensorIdx]);
-    sampleIdx++;
-
-    // 4. 當單個傳感器集齊 3 次採樣後，計算中值與濾波
-    if (sampleIdx >= 3) {
-        int s1 = samples[sensorIdx][0];
-        int s2 = samples[sensorIdx][1];
-        int s3 = samples[sensorIdx][2];
-
-        // 三點取中值
-        float median;
-        if ((s1 <= s2 && s2 <= s3) || (s3 <= s2 && s2 <= s1)) median = s2;
-        else if ((s2 <= s1 && s1 <= s3) || (s3 <= s1 && s1 <= s2)) median = s1;
-        else median = s3;
-
-        // 物理轉換
-        float dist_raw = median * 520.0f / 1024.0f;
-
-        // 一階低通濾波
-        *targetData[sensorIdx] = (alpha * (*targetData[sensorIdx])) + ((1.0f - alpha) * dist_raw);
-
-        // 重置採樣計數，切換到下一個傳感器
-        sampleIdx = 0;
-        sensorIdx = (sensorIdx + 1) % 4; 
+    // Only process ONE sensor every 35ms to prevent acoustic interference
+    if (millis() - lastReadTime >= pingInterval) {
+        float rawValue = 0;
+        switch(sensorStep) {
+            case 0: // BACK
+                rawValue = analogRead(back_us) * 520.0f / 1024.0f;
+                dist_b_f = (alpha * rawValue) + ((1.0f - alpha) * dist_b_f);
+                usData.dist_b = (int)dist_b_f;
+                sensorStep = 1;
+                break;
+                
+            case 1: // LEFT
+                rawValue = analogRead(left_us) * 520.0f / 1024.0f;
+                dist_l_f = (alpha * rawValue) + ((1.0f - alpha) * dist_l_f);
+                usData.dist_l = (int)dist_l_f;
+                sensorStep = 2;
+                break;
+                
+            case 2: // RIGHT
+                rawValue = analogRead(right_us) * 520.0f / 1024.0f;
+                dist_r_f = (alpha * rawValue) + ((1.0f - alpha) * dist_r_f);
+                usData.dist_r = (int)dist_r_f;
+                sensorStep = 3;
+                break;
+                
+            case 3: // FRONT
+                rawValue = analogRead(front_us) * 520.0f / 1024.0f;
+                dist_f_f = (alpha * rawValue) + ((1.0f - alpha) * dist_f_f);
+                usData.dist_f = (int)dist_f_f;
+                sensorStep = 0; // Reset to start
+                break;
+        }
+        lastReadTime = millis();
     }
-}
 /*
-void readussensor(){
-    // static variables remember their values between calls
-    static float dist_b_f = 0.0f;
-    static float dist_l_f = 0.0f;
-    static float dist_r_f = 0.0f;
-    static float dist_f_f = 0.0f;
+    // 防止除以零（設定一個極小距離）
+    float safe_l = max(usData.dist_l, 1.0f);
+    float safe_r = max(usData.dist_r, 1.0f);
+    float safe_f = max(usData.dist_f, 1.0f);
+    float safe_b = max(usData.dist_b, 1.0f);
 
-    // read raw ADC and convert to cm (or mm depending on your scaling)
-    float dist_b_raw = analogRead(back_us) * 520.0f / 1024.0f;
-    float dist_l_raw = analogRead(left_us) * 520.0f / 1024.0f;
-    float dist_r_raw = analogRead(right_us) * 520.0f / 1024.0f;
-    float dist_f_raw = analogRead(front_us) * 520.0f / 1024.0f;
-    // complementary (low-pass) filtering
-    dist_b_f = alpha * dist_b_f + (1.0f - alpha) * dist_b_raw;
-    dist_l_f = alpha * dist_l_f + (1.0f - alpha) * dist_l_raw;
-    dist_r_f = alpha * dist_r_f + (1.0f - alpha) * dist_r_raw;
-    dist_f_f = alpha * dist_f_f + (1.0f - alpha) * dist_f_raw;
-    // assign filtered values to struct
-    usData.dist_b = dist_b_f;
-    usData.dist_l = dist_l_f;
-    usData.dist_r = dist_r_f;
-    usData.dist_f = dist_f_f;
-}
+    // --- 計算 X 坐標 (Left & Right) ---
+    // 權重與距離成反比
+    float w_l = 1.0f / safe_l;
+    float w_r = 1.0f / safe_r;
+    
+    // 假設左傳感器坐標為 -10cm，右傳感器為 +10cm (請根據實際安裝位置修改)
+    float left_pos_x = -8.0f; 
+    float right_pos_x = 8.0f;
+    
+    targetPos.x = (w_l * left_pos_x + w_r * right_pos_x) / (w_l + w_r);
+
+    // --- 計算 Y 坐標 (Front & Back) ---
+    float w_f = 1.0f / safe_f;
+    float w_b = 1.0f / safe_b;
+
+    // 假設前傳感器坐標為 +15cm，後傳感器為 -15cm
+    float front_pos_y = 8.0f;
+    float back_pos_y = -8.0f;
+
+    targetPos.y = (w_f * front_pos_y + w_b * back_pos_y) / (w_f + w_b);
 */
+    // 1. 取得濾波後的距離（確保單位一致，假設為 cm）
+    float dl = usData.dist_l;
+    float dr = usData.dist_r;
+    float df = usData.dist_f;
+    float db = usData.dist_b;
+
+    // 2. 避免極小值導致權重爆炸 (Divide by Zero)
+    const float min_dist = 1.0f; 
+    if (dl < min_dist) dl = min_dist;
+    if (dr < min_dist) dr = min_dist;
+    if (df < min_dist) df = min_dist;
+    if (db < min_dist) db = min_dist;
+
+    // 3. 定義傳感器的「物理安裝位置」(這決定了坐標的量級)
+    // 如果你希望坐標範圍大一點，這裡的值要根據機器人實際尺寸設定
+    const float L_POS_X = -8.0f; // 左傳感器在 x = -20cm
+    const float R_POS_X =  8.0f; // 右傳感器在 x =  20cm
+    const float F_POS_Y =  8.0f; // 前傳感器在 y =  20cm
+    const float B_POS_Y = -8.0f; // 後傳感器在 y = -20cm
+
+    // 4. 計算權重 (使用平方反比會讓「近距離」的影響力更誇張)
+    // 如果想要平緩一點，用 1.0f / dl 即可
+    float wl = 1.0f / (dl * dl); 
+    float wr = 1.0f / (dr * dr);
+    float wf = 1.0f / (df * df);
+    float wb = 1.0f / (db * db);
+
+    float obs_l = L_POS_X - dl; // 實際左側物體位置
+    float obs_r = R_POS_X + dr; // 實際右側物體位置
+    float obs_f = F_POS_Y + df; // 實際前方物體位置
+    float obs_b = B_POS_Y - db; // 實際後方物體位置
+
+    targetPos.x = (wl * obs_l + wr * obs_r) / (wl + wr);
+    targetPos.y = (wf * obs_f + wb * obs_b) / (wf + wb);
+    Serial.printf("pos_x = %f, pos_y = %f\n", targetPos.x, targetPos.y);
+}
 
 bool UI_Interface(){
     readussensor();
-
     readBallCam();
 
     static uint32_t lastDisplayTime = 0;
 
-    Serial.println("running");
 
     switch (currentState) {
 
         case STATE_READY:
-
             if (digitalRead(BTN_ENTER) == LOW) {
 
                 Serial8.write(LS_CAL_START); // Command to Sensor Board
@@ -276,33 +317,18 @@ bool UI_Interface(){
             }
 
             if (millis() - lastDisplayTime > 100) { // 每 0.1 秒更新一次螢幕
-
                 display.clearDisplay();
-
                 display.setTextSize(1);
-
                 display.setTextColor(SSD1306_WHITE);
-
-                
-
-                // 顯示指南針 (Heading) 輔助確認感測器是否正常
-
-                display.setCursor(0, 10);
-
-                //display.printf("pitch: %.1f", gyroData.pitch);
-
-                display.printf("angle: %d\n", ballData.angle);
-
-                display.setCursor(0, 25);
-
-                //display.printf("pitch: %.1f", gyroData.pitch);
-
-                display.printf("dist: %d\n", ballData.dist);
-
+                display.setCursor(0, 0);
+                display.printf("ball dist: %d\n", ballData.dist);
+                display.printf("ball angle: %d\n",ballData.angle);
+                display.printf("us f: %d\n", usData.dist_f);
+                display.printf("us l: %d\n", usData.dist_l);
+                display.printf("us r: %d\n", usData.dist_r);
+                display.printf("us b: %d\n", usData.dist_b);
                 display.display();
-
                 lastDisplayTime = millis();
-
             }
             if(digitalRead(BTN_UP) == LOW){
                 return false;
@@ -312,7 +338,6 @@ bool UI_Interface(){
             //defense
 
             break;
-
 
 
         case STATE_CALIBRATING:
@@ -361,4 +386,28 @@ bool UI_Interface(){
             break;
     }
     return true;
+}
+
+bool move_to(int pos_x, int pos_y){
+    ;
+    return true;
+}
+
+bool turn_to(int heading){
+    ;
+    return true;    
+}
+
+bool move_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+bool turn_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+void update_robot_sensor(){
+    
 }
