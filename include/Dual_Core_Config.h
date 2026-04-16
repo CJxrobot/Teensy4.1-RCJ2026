@@ -1,6 +1,9 @@
 #ifndef DUAL_CORE_CONFIG_H
 #define DUAL_CORE_CONFIG_H
 
+#define HEADER 0X0A
+#define CMODE 0X0C
+#define TMODE 0xEC
 #define LS_CAL_START 0xAA   // Start Calibration
 #define LS_CAL_END   0xEE   // End Calibration
 #define LS_CAL_ACK   0xDD   // Acknowledgment (Save Complete)
