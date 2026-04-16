@@ -26,13 +26,54 @@
 #define alpha 0.75  
 
 
-extern struct CamData{uint16_t ball_x = 65535;uint16_t ball_y = 65535;uint16_t ball_w = 65535;uint16_t ball_h = 65535; bool ball_valid = false;uint16_t goal_x = 65535;uint16_t goal_y = 65535;uint16_t goal_w = 65535;uint16_t goal_h = 65535; bool  goal_valid = false;} camData;
-extern struct BallData{uint16_t dist = 255; uint16_t angle = 255; uint16_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
-extern struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
-extern struct LineData{bool exist; uint32_t state;} lineData;
+// --- 1. Blueprints (Struct Definitions) ---
+// We define these so every file knows the "shape" of the data.
+struct CamData {
+    uint16_t ball_x = 65535; uint16_t ball_y = 65535;
+    uint16_t ball_w = 65535; uint16_t ball_h = 65535;
+    bool ball_valid = false;
+    uint16_t goal_x = 65535; uint16_t goal_y = 65535;
+    uint16_t goal_w = 65535; uint16_t goal_h = 65535;
+    bool goal_valid = false;
+};
 
-// --- OLED Instance (Extern) ---
+struct BallData {
+    uint16_t dist = 255; uint16_t angle = 255;
+    uint16_t possession = 255; bool valid = false;
+    float Vx; float Vy;
+};
+
+struct USSensor {
+    uint16_t dist_b = 0; uint16_t dist_l = 0;
+    uint16_t dist_r = 0; uint16_t dist_f = 0;
+};
+
+struct LineData {
+    bool exist; uint32_t state;
+};
+
+// --- 2. Communication Packets (Packed) ---
+typedef struct __attribute__((packed)) {
+    uint8_t header; // 0xAA
+    float vx;       // Translation X
+    float vy;       // Translation Y
+    float vrot;     // Rotation
+} MovePacket;
+
+typedef struct __attribute__((packed)) {
+    uint8_t header;     // 0xBB
+    uint32_t lineState; // 32-bit sensor data
+    float heading;      // Gyro heading
+} FeedbackPacket;
+
+// --- 3. External Variables ---
+// These tell the compiler "The actual memory for these is in main.cpp"
+extern CamData camData;
+extern BallData ballData;
+extern USSensor usData;
+extern LineData lineData;
 extern Adafruit_SSD1306 display;
+
 
 // --- Function Prototypes ---
 void main_core_init();
