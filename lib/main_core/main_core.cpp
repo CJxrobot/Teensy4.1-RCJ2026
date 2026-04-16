@@ -5,7 +5,7 @@
 CamData camData;
 BallData ballData;
 USSensor usData;
-LineData lineData;
+SubCoreData subCoreData;
 
 struct Point {
     float x;
@@ -370,6 +370,18 @@ void writeMotorCommand(float vx, float vy, float rot_v, int target_heading){
     Serial8.write(data, sizeof(data));
 }   
 
+void readGyroAndLineFromSubCore() {
+    Serial8.write(SUBCORE_SENSOR_DATA); // Request data
+    while(!Serial8.available()){
+        Serial8.write(SUBCORE_SENSOR_DATA); // Request data    
+    }
+    uint8_t buf[7];
+    Serial8.readBytes(buf, 7);
+    if(buf[0] == PROTOCAL_HEADER && buf[6] == PROTOCAL_END) {
+        subCoreData.gyroHeading = buf[1] * 10; // Gyro heading (0-255)
+        subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | ((uint32_t)buf[3] << 8) | buf[2]; // Line state (32 sensors)
+    }
+}
 
 bool move_to(int pos_x, int pos_y){
     ;

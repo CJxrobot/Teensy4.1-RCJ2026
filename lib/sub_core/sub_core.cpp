@@ -196,12 +196,17 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading) {
 }
 
 void sendGyroAndLineToMainCore() {
-    uint8_t data[5];
-    data[0] = 0xBB; // Header
-    data[1] = (uint8_t)(gyroData.heading); // Gyro Heading (0-255)
+    uint8_t data[7];
+    data[0] = PROTOCAL_HEADER; // Header
+    Serial.print("gyroData.heading: ");
+    Serial.println(gyroData.heading);
+    float temp = fmod((90 - gyroData.heading + 360), 360);
+    data[1] = (uint8_t)(temp / 10.0); // Gyro Heading (0-255)
     data[2] = (uint8_t)(line.state & 0xFF); // Line Sensor State (lower 8 bits)
     data[3] = (uint8_t)((line.state >> 8) & 0xFF); // Line Sensor State (upper 8 bits)
-    data[4] = 0xEE; // Footer
+    data[4] = (uint8_t)((line.state >> 16) & 0xFF)); // Line Sensor State (upper 16 bits)
+    data[5] = (uint8_t)((line.state >> 24)& 0xFF)); // Line Sensor State (upper 24 bits)
+    data[6] = PROTOCAL_END; // Footer
     Serial8.write(data, sizeof(data));
 }
 

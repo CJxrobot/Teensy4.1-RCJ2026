@@ -26,15 +26,17 @@ void t_mode_main_function() {
           sendGyroAndLineToMainCore();
         }
       }
-      readMotorCommand();
-      Serial.printf("vx:%f, vy:%f, heading:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
-      FC_Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.heading);
+      //readMotorCommand();
+      //Serial.printf("vx:%f, vy:%f, heading:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
+      //FC_Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.heading);
     }
 }
 
 void setup(){
   sub_core_init();
+
   while(1){
+  Serial.println("Waiting for MainCore...");
     if(Serial8.available()){
       op_mode = Serial8.read();
       Serial.printf("Received mode: 0x%X\n", op_mode);
@@ -82,7 +84,7 @@ void loop(){
           delay(100); // Ensure EEPROM write completes
           Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
         } 
-      else if (cmd == MOVE_CMD) {
+      else if (cmd == MOVE_CMD) {// When BTN_UP is pressed, send a move command to the main core
         Serial8.write(PROTOCAL_ACT);
         break;
       }
