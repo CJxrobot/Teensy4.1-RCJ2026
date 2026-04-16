@@ -34,7 +34,8 @@
 #define DIRA_4 37    // 方向控制腳1
 #define DIRB_4 36 
 
-
+//LED Pins
+#define LED_BUILTIN 13
 
 // --- Data Structures ---
 
@@ -86,9 +87,6 @@ void SetMotorSpeed(uint8_t port, float speed);
 void RobotIKControl(float vx, float vy, float omega);
 void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
-
-// Dual Core Communication Prototypes
-void sendToCore2();
-uint32_t readfrom_MainCore();
-
+void sendGyroAndLineToMainCore();
+void readMotorCommand();
 #endif

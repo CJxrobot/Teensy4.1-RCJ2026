@@ -38,6 +38,9 @@ void sub_core_init() {
     pinMode(DIRA_4, OUTPUT);
     pinMode(DIRB_4, OUTPUT);
 
+    //LED
+    pinMode(LED_BUILTIN, OUTPUT);
+
     EEPROM.begin();
     EEPROM.get(0, avg_ls);
 }
@@ -114,31 +117,7 @@ void update_gyro_sensor(){
   }
 }
 
-void line_calibrate() {
-    uint16_t max_ls[32], min_ls[32];
-    for (int i = 0; i < 32; i++) { 
-        max_ls[i] = 0; 
-        min_ls[i] = 4095; 
-    }
 
-    while (1) {
-        if(Serial8.available()){
-            uint8_t cmd = Serial8.read();
-            if(cmd == LS_CAL_END){ // End calibration command
-                break;
-            }
-        }
-        for (int i = 0; i < 32; i++) {
-            int r = readMux(i % 16, (i < 16) ? M1 : M2);
-            if (r > max_ls[i]) max_ls[i] = r; 
-            if (r < min_ls[i]) min_ls[i] = r;
-        }
-    }
-
-    for (int i = 0; i < 32; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
-    EEPROM.put(0, avg_ls);
-    Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
-}
 
 /* --- Actuators Part --- */
 
@@ -227,30 +206,16 @@ void sendGyroAndLineToMainCore() {
 }
 
 void readMotorCommand() {
-    if(Serial8.available()) {
-        // 1. Peek: "Is the first byte the header?"
-        if(Serial8.peek() != PROTOCOL_HEADER) {
-            
-            // 2. If NO: "This byte is trash. Throw it away."
-            Serial8.read(); 
-            
-            // 3. Continue: "Check the next byte immediately."
-            continue; 
-        }
-        // 4. If YES: "The header is at the front! Safe to read all 6 bytes now."
+    if(Serial8.available() >= 6) { // Expecting 6 bytes: header, vx, vy, rot_v, target_heading, footer
         uint8_t buf[6];
-        for(int i = 0; i < 6; i++) {
-            buf[i] = Serial8.read();
-        }
-        if(buf[5] != PROTOCOL_END) {
-            // Footer check failed, discard and wait for next command
-            return;
+        Serial8.readBytes(buf, 6);
+        if(buf[0] != PROTOCAL_HEADER || buf[5] != PROTOCAL_END) {
+            return; // Invalid packet
         }
         int8_t vx = (int8_t)buf[1];
         int8_t vy = (int8_t)buf[2];
         int8_t rot_v = (int8_t)buf[3] * 0.01;
         int8_t target_heading = (int8_t)buf[4] * 10;
-
         // Convert back to float and degrees
         mainCommand.vx = (float)vx;
         mainCommand.vy = (float)vy;

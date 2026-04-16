@@ -5,6 +5,8 @@
 // Toggle these as needed
 #define T_MODE
 
+#define T_MODE_HEADER 0x11
+#define C_MODE_HEADER 0x22
 
 // Command List
 #define LS_CAL_START 0x65  // Start Calibration
@@ -15,10 +17,9 @@
 
 
 // Protocal
-#define PROTOCAL_HEDAER 0xBB   // Start Action/Match Mode
-#define PROTOCAL_HEDAER 0xEE   // Start Action/Match Mode
+#define PROTOCAL_HEADER 0xBB   // Start Action/Match Mode
+#define PROTOCAL_END 0xEE   // Start Action/Match Mode
 #define PROTOCAL_ACT    0xCC   // Start Action/Match Mode
-
 
 
 // --- Configuration Constants ---

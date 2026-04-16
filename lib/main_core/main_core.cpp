@@ -298,23 +298,15 @@ void readussensor() {
 bool UI_Interface(){
     readussensor();
     readBallCam();
-
     static uint32_t lastDisplayTime = 0;
-
-
     switch (currentState) {
-
         case STATE_READY:
             if (digitalRead(BTN_ENTER) == LOW) {
-
                 Serial8.write(LS_CAL_START); // Command to Sensor Board
-
                 drawMessage("SCANNING");
-
+                delay(500);
                 currentState = STATE_CALIBRATING;
-
-                delay(200);
-
+                break;
             }
 
             if (millis() - lastDisplayTime > 100) { // 每 0.1 秒更新一次螢幕
@@ -342,47 +334,25 @@ bool UI_Interface(){
 
 
         case STATE_CALIBRATING:
-
             if (digitalRead(BTN_ESC) == LOW) {
-
                 Serial8.write(LS_CAL_END); // Command to Save
-
                 drawMessage("SAVING...");
-
+                delay(500);
                 currentState = STATE_SAVING;
-
-                delay(200);
-
             }
-
             break;
-
-
-
         case STATE_SAVING:
-
             if(Serial8.available()){
-
                 uint8_t c = Serial8.read();
-
-                if(c == 0xDD){
-
+                if(c == LS_CAL_END){
                     drawMessage("SAVED!");
-
                     delay(1000); // 讓 SAVED 停一下
-
                 }
-
-                    // 回到初始狀態
-
+                // 回到初始狀態
                 drawMessage("READY");
-
-                delay(200);
-
+                delay(1000);
                 display.clearDisplay();
-
                 currentState = STATE_READY;
-
             }
             break;
     }
@@ -397,7 +367,7 @@ void writeMotorCommand(float vx, float vy, float rot_v, int target_heading){
     data[3] = (int8_t)(rot_v);
     data[4] = (int8_t)(target_heading  / 10.0);
     data[5] = PROTOCAL_END;
-    Serial.writebytes(data, sizeof(data));
+    Serial8.write(data, sizeof(data));
 }   
 
 
@@ -419,8 +389,4 @@ bool move_in_second(int vx, int vy, int s){
 bool turn_in_second(int vx, int vy, int s){
     ;
     return true;
-}
-
-void update_robot_sensor(){
-    
 }

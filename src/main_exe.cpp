@@ -4,6 +4,22 @@
 void c_mode_main_function();
 void t_mode_main_function();
 
+// --- Main Logic Functions ---
+
+void c_mode_main_function() {
+    Serial.println("Cmode Started");
+    while(1) {
+        ;
+    }
+}
+
+void t_mode_main_function() {
+    Serial.println("Tmode Started");
+    while(1) {
+        ;
+    }
+}
+
 void setup() {
     main_core_init();
     uint8_t header = 0;
@@ -19,24 +35,25 @@ void setup() {
         drawMessage("Default");
     #endif
 
-    // Universal Handshake Loop
     while(1) {
+        Serial.println("Waiting for SubCore...");
         Serial8.write(header);
-        
         // Wait a short moment for the sub-core to respond
-        delay(50); 
-        
+        delay(5); 
         if(Serial8.available() > 0) {
-            if(Serial8.read() == ACT) {
+            if(Serial8.read() == PROTOCAL_ACT) {
                 break; // Connection confirmed
             }
         }
     }
+    Serial.println("SubCore exists");
 }
 
 void loop() {
     // Wait for UI to finish
-    while(UI_Interface()); 
+    while(UI_Interface()) {
+        ;
+    }
 
     // The code only reaches here AFTER UI_Interface() returns false
     #ifdef C_MODE
@@ -46,24 +63,4 @@ void loop() {
     #ifdef T_MODE
         t_mode_main_function();
     #endif
-}
-
-// --- Main Logic Functions ---
-
-void c_mode_main_function() {
-    Serial.println("Cmode Started");
-    while(1) {
-        readussensor(); // Keep updating sensors!
-        readBallCam();
-        // Add logic here
-    }
-}
-
-void t_mode_main_function() {
-    Serial.println("Tmode Started");
-    while(1) {
-        readussensor(); // Keep updating sensors!
-        readBallCam();
-        // Add logic here
-    }
 }
