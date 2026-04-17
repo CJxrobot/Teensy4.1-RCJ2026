@@ -57,6 +57,7 @@ int readMux(int ch, int sig) {
     if(sig == 2){
         return analogRead(M2);
     }
+    return 4095;
 }
 
 void update_line_sensor(){
