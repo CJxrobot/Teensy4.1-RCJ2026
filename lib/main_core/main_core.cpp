@@ -10,7 +10,7 @@ SubCoreData subCoreData;
 struct Point {
     float x;
     float y;
-} targetPos;
+} RobotPos;
 
 
 // --- OLED OBJECT ---
@@ -230,6 +230,14 @@ void readussensor() {
         }
         lastReadTime = millis();
     }
+    if(camData.goal_valid){
+        int16_t goal_height = 0;
+        goal_height = camData.goal_h;
+        if(goal_height > GOAL_LOCALIZATION_THRESHOLD_L && goal_height < GOAL_LOCALIZATION_THRESHOLD_H){
+            RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
+        }
+    }
+
 /*
     // 防止除以零（設定一個極小距離）
     float safe_l = max(usData.dist_l, 1.0f);
@@ -290,14 +298,15 @@ void readussensor() {
     float obs_f = F_POS_Y + df; // 實際前方物體位置
     float obs_b = B_POS_Y - db; // 實際後方物體位置
 
-    targetPos.x = (wl * obs_l + wr * obs_r) / (wl + wr);
-    targetPos.y = (wf * obs_f + wb * obs_b) / (wf + wb);
-    Serial.printf("pos_x = %f, pos_y = %f\n", targetPos.x, targetPos.y);
+    RobotPos.x = (wl * obs_l + wr * obs_r) / (wl + wr);
+    RobotPos.y = (wf * obs_f + wb * obs_b) / (wf + wb);
+    
 }
 
 bool UI_Interface(){
     readussensor();
     readBallCam();
+    readFrontCam();
     static uint32_t lastDisplayTime = 0;
     switch (currentState) {
         case STATE_READY:
@@ -324,6 +333,8 @@ bool UI_Interface(){
                 lastDisplayTime = millis();
             }
             if(digitalRead(BTN_UP) == LOW){
+                display.clearDisplay();
+                display.display();
                 return false;
             }
             //offense
@@ -359,28 +370,47 @@ bool UI_Interface(){
     return true;
 }
 
-void writeMotorCommand(float vx, float vy, float rot_v, int target_heading){
+void sendMotor(float vx, float vy, float rot_v, int target_heading) {
     uint8_t data[6];
     data[0] = PROTOCAL_HEADER;
-    data[1] = (int8_t)(vx);
-    data[2] = (int8_t)(vy);
-    data[3] = (int8_t)(rot_v);
-    data[4] = (int8_t)(target_heading  / 10.0);
+    data[1] = (int8_t)vx;
+    data[2] = (int8_t)vy;
+    // Scale up by 100 so we don't lose decimals (e.g., 0.5 rad/s becomes 50)
+    data[3] = (int8_t)(rot_v * 100.0f);
+    // Scale down by 10 to fit 0-360 into a single byte (0-36)
+    data[4] = (int8_t)(target_heading / 10);
     data[5] = PROTOCAL_END;
     Serial8.write(data, sizeof(data));
-}   
+}
 
-void readGyroAndLineFromSubCore() {
-    Serial8.write(SUBCORE_SENSOR_DATA); // Request data
-    while(!Serial8.available()){
-        Serial8.write(SUBCORE_SENSOR_DATA); // Request data    
-    }
-    uint8_t buf[7];
-    Serial8.readBytes(buf, 7);
-    if(buf[0] == PROTOCAL_HEADER && buf[6] == PROTOCAL_END) {
-        subCoreData.gyroHeading = buf[1] * 10; // Gyro heading (0-255)
-        subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | ((uint32_t)buf[3] << 8) | buf[2]; // Line state (32 sensors)
-    }
+void sendMotorAndGetSensors(float vx, float vy, float rot_v, int target_heading) {
+    // 1. Send the command ONLY once.
+    // To avoid flooding, you should only call this function at a set interval (e.g. 20ms)
+    uint8_t data[6];
+    data[0] = PROTOCAL_HEADER;
+    data[1] = (int8_t)vx;
+    data[2] = (int8_t)vy;
+    data[3] = (int8_t)(rot_v * 100.0f);
+    data[4] = (int8_t)(target_heading / 10);
+    data[5] = PROTOCAL_END;
+    
+    Serial8.write(data, sizeof(data));
+
+    // 2. Try to read the response from the PREVIOUS command.
+    // If it's not here yet, we don't wait. We move on to keep the robot moving.
+    if(Serial8.available() >= 7) { 
+        if (Serial8.peek() == PROTOCAL_HEADER) {
+            uint8_t buf[7];
+            Serial8.readBytes(buf, 7);
+            if (buf[6] == PROTOCAL_END) {                
+                subCoreData.gyroHeading = buf[1] * 10;
+                subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | 
+                                        ((uint32_t)buf[3] << 8) | buf[2];
+            }
+        } else {
+            Serial8.read(); // Clear one byte of junk if it's not the header
+        }
+    } 
 }
 
 bool move_to(int pos_x, int pos_y){

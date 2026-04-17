@@ -87,6 +87,6 @@ void SetMotorSpeed(uint8_t port, float speed);
 void RobotIKControl(float vx, float vy, float omega);
 void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
-void sendGyroAndLineToMainCore();
-void readMotorCommand();
+void readMotor();
+void readMotorandSendSensors();
 #endif

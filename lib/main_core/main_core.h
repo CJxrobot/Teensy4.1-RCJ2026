@@ -25,6 +25,11 @@
 #define right_us A17
 #define alpha 0.75  
 
+// --- Goal Localization Thresholds ---
+#define GOAL_LOCALIZATION_THRESHOLD_L 20
+#define GOAL_LOCALIZATION_THRESHOLD_H 70
+#define GOAL_LOCALIZATION_C1 3335.0
+
 
 // --- 1. Blueprints (Struct Definitions) ---
 // We define these so every file knows the "shape" of the data.
@@ -74,5 +79,6 @@ void localization();
 void kicker_control(bool kick);
 bool UI_Interface();
 void readGyroAndLineFromSubCore();
-void writeMotorCommand(float vx, float vy, float rot_v, int target_heading);
+void sendMotor(float vx, float vy, float rot_v, int heading);
+void sendMotorAndGetSensors(float vx, float vy, float rot_v, int heading);
 #endif

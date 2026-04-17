@@ -7,7 +7,7 @@ void c_mode_main_function() {
         update_line_sensor(); // Keep updating sensors!
         update_gyro_sensor();
         // Add logic here
-        readMotorCommand();
+        readMotor();
         //White Line Handling Example
         /*TODO*/
         Serial.printf("vx:%f, vy:%f, rot_v:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
@@ -17,18 +17,12 @@ void c_mode_main_function() {
 
 void t_mode_main_function() {
     Serial.println("Tmode Started");
-    while(1){
-      update_gyro_sensor();
-      update_line_sensor();
-      if(Serial8.available()) {
-        uint8_t cmd = Serial8.read();
-        if(cmd == SUBCORE_SENSOR_DATA){
-          sendGyroAndLineToMainCore();
-        }
-      }
-      //readMotorCommand();
-      //Serial.printf("vx:%f, vy:%f, heading:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
-      //FC_Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.heading);
+    while(1) {
+        update_line_sensor(); // Keep updating sensors!
+        update_gyro_sensor();
+        readMotorandSendSensors();
+        Serial.printf("vx:%f, vy:%f, rot_v:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v, mainCommand.heading);
+        FC_Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.heading); 
     }
 }
 

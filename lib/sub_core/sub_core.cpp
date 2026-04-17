@@ -195,36 +195,67 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading) {
     RobotIKControl(robot_vx, robot_vy, omega);
 }
 
-void sendGyroAndLineToMainCore() {
-    uint8_t data[7];
-    data[0] = PROTOCAL_HEADER; // Header
-    Serial.print("gyroData.heading: ");
-    Serial.println(gyroData.heading);
-    float temp = fmod((90 - gyroData.heading + 360), 360);
-    data[1] = (uint8_t)(temp / 10.0); // Gyro Heading (0-255)
-    data[2] = (uint8_t)(line.state & 0xFF); // Line Sensor State (lower 8 bits)
-    data[3] = (uint8_t)((line.state >> 8) & 0xFF); // Line Sensor State (upper 8 bits)
-    data[4] = (uint8_t)((line.state >> 16) & 0xFF)); // Line Sensor State (upper 16 bits)
-    data[5] = (uint8_t)((line.state >> 24)& 0xFF)); // Line Sensor State (upper 24 bits)
-    data[6] = PROTOCAL_END; // Footer
-    Serial8.write(data, sizeof(data));
-}
-
-void readMotorCommand() {
-    if(Serial8.available() >= 6) { // Expecting 6 bytes: header, vx, vy, rot_v, target_heading, footer
-        uint8_t buf[6];
-        Serial8.readBytes(buf, 6);
-        if(buf[0] != PROTOCAL_HEADER || buf[5] != PROTOCAL_END) {
-            return; // Invalid packet
+void readMotor() {
+    // 1. Keep looping as long as there is data to look at
+    while (Serial8.available() >= 6) {
+        
+        // Peek at the first byte to see if it's the header
+        if (Serial8.peek() != PROTOCAL_HEADER) {
+            Serial8.read(); // Not the header? Toss it and check the next byte
+            continue;
         }
-        int8_t vx = (int8_t)buf[1];
-        int8_t vy = (int8_t)buf[2];
-        int8_t rot_v = (int8_t)buf[3] * 0.01;
-        int8_t target_heading = (int8_t)buf[4] * 10;
-        // Convert back to float and degrees
-        mainCommand.vx = (float)vx;
-        mainCommand.vy = (float)vy;
-        mainCommand.rot_v = (float)rot_v;
-        mainCommand.heading = (uint16_t)target_heading * 10; // Assuming it was divided by 10 before sending
+
+        // 2. If we are here, the first byte is the header. 
+        uint8_t buf[6];
+        Serial8.readBytes(buf, 6); // Read the full 6-byte packet
+
+        // 3. Double check the footer to ensure the packet isn't corrupted
+        if (buf[5] != PROTOCAL_END) {
+            Serial.println("Error: Header matched but Footer failed.");
+            continue; 
+        }
+
+        // 4. Success! Now parse the data
+        mainCommand.vx = (float)((int8_t)buf[1]);
+        mainCommand.vy = (float)((int8_t)buf[2]);
+        mainCommand.rot_v = (float)((int8_t)buf[3]) / 100.0f;
+        mainCommand.heading = (uint16_t)((int8_t)buf[4]) * 10;
     }
 }
+
+void readMotorandSendSensors() {
+    // Process all available bytes to find a valid packet
+    while (Serial8.available() >= 6) {
+        if (Serial8.peek() != PROTOCAL_HEADER) {
+            Serial8.read(); 
+            continue;
+        }
+
+        uint8_t buf[6];
+        Serial8.readBytes(buf, 6);
+
+        if (buf[5] == PROTOCAL_END) {
+            // 1. Update motor values
+            mainCommand.vx = (float)((int8_t)buf[1]);
+            mainCommand.vy = (float)((int8_t)buf[2]);
+            mainCommand.rot_v = (float)((int8_t)buf[3]) / 100.0f;
+            mainCommand.heading = (uint16_t)((int8_t)buf[4]) * 10;
+
+            // 2. Prepare FRESH sensor data to send back immediately
+            uint8_t res[7];
+            res[0] = PROTOCAL_HEADER;
+            float temp = fmod((90 - gyroData.heading + 360), 360);
+            res[1] = (uint8_t)(temp / 10.0);
+            res[2] = (uint8_t)(line.state & 0xFF);
+            res[3] = (uint8_t)((line.state >> 8) & 0xFF);
+            res[4] = (uint8_t)((line.state >> 16) & 0xFF);
+            res[5] = (uint8_t)((line.state >> 24) & 0xFF);
+            res[6] = PROTOCAL_END;
+
+            // 3. Respond exactly once per received command
+            Serial8.write(res, 7);
+            break; 
+        }
+    }
+}
+// Raw Command BB 0A 0A 00 02 EE Test

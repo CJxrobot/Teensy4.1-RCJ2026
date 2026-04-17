@@ -6,6 +6,19 @@ void t_mode_main_function();
 
 // --- Main Logic Functions ---
 
+void t_mode_main_function() {
+    Serial.println("Tmode Started");
+    while(1) {
+        readBallCam();
+        readFrontCam();
+        readussensor();
+        sendMotorAndGetSensors(0, 0, 0, 90);
+        //writeMotorCommand(10, 10, 0, 20); // Placeholder for actual command logic
+        Serial.printf("gyro:%d, line:%lu\n", subCoreData.gyroHeading, subCoreData.lineState);
+    }
+}
+
+
 void c_mode_main_function() {
     Serial.println("Cmode Started");
     while(1) {
@@ -13,20 +26,6 @@ void c_mode_main_function() {
     }
 }
 
-void t_mode_main_function() {
-    Serial.println("Tmode Started");
-    while(1) {
-        Serial.println("Step 1");
-        readGyroAndLineFromSubCore();
-        Serial.println("Step 2");
-        readBallCam();
-        Serial.println("Step 3");
-        readFrontCam();
-        Serial.println("Step 4");
-        readussensor();
-        Serial.printf("gyro:%d, line:%lu\n", subCoreData.gyroHeading, subCoreData.lineState);
-    }
-}
 
 void setup() {
     main_core_init();
