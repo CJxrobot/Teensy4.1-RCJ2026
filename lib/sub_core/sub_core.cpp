@@ -5,7 +5,7 @@ LineData lineData;
 GyroData gyroData;       
 RobotStatus robot;
 MainCoreCommand mainCommand;
-uint16_t avg_ls[32];
+uint16_t avg_ls[34];
 
 void sub_core_init() {
     Serial8.begin(115200); // For communication with MainCore

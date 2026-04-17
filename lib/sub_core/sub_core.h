@@ -35,6 +35,9 @@
 #define DIRB_4 36 
 
 #define LS_count 32
+#define Front_LS A7
+#define Mid_LS A6
+
 
 
 // --- Data Structures ---
@@ -75,7 +78,7 @@ extern LineData lineData;
 extern MainCoreCommand mainCommand; // Added for MainCoreCommand usage  
 extern GyroData gyroData;       
 extern RobotStatus robot;        // Added to match Vector_Motion usage
-extern uint16_t avg_ls[32];     
+extern uint16_t avg_ls[34];
 
 // --- Core Function Prototypes ---
 void sub_core_init();

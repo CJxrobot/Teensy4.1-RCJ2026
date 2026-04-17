@@ -9,7 +9,17 @@ void c_mode_main_function() {
         // Add logic here
         readMotor();
         //White Line Handling Example
-        /*TODO*/
+        bool front_touch = analogRead(Front_LS) < avg_ls[32];
+        bool mid_touch = analogRead(Mid_LS) < avg_ls[33];
+        Serial.printf("Front LS: %d, Mid LS: %d\n", front_touch, mid_touch);
+        if(front_touch){
+          //前進
+          ;
+        }
+        if(mid_touch){
+          //停止
+          ;
+        }
         Serial.printf("vx:%f, vy:%f, rot_v:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
         Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
     }
@@ -55,6 +65,8 @@ void loop(){
       //Serial.print(cmd);
       if (cmd == LS_CAL_START) {
           uint16_t max_ls[32], min_ls[32];
+          uint16_t front_max = 0, front_min = 4095;
+          uint16_t mid_max = 0, mid_min = 4095;
           for (int i = 0; i < 32; i++) { 
             max_ls[i] = 0; 
             min_ls[i] = 4095; 
@@ -76,12 +88,21 @@ void loop(){
               if (r > max_ls[i]) max_ls[i] = r; 
               if (r < min_ls[i]) min_ls[i] = r;
             }
+            uint16_t reading = analogRead(Front_LS);
+            if(reading > front_max) front_max = reading;
+            if(reading < front_min) front_min = reading;
+            reading = analogRead(Mid_LS);
+            if(reading > mid_max) mid_max = reading;
+            if(reading < mid_min) mid_min = reading;
+
           }
 
           for (int i = 0; i < LS_count; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
           for (int i = 0; i < LS_count; i++) {
             Serial.printf("Sensor %d: min=%d, max=%d, avg=%d\n", i, min_ls[i], max_ls[i], avg_ls[i]);
           }
+          avg_ls[32] = (front_max + front_min) / 2;
+          avg_ls[33] = (mid_max + mid_min) / 2;
           EEPROM.put(0, avg_ls);
           delay(1000); // Ensure EEPROM write completes
           Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
