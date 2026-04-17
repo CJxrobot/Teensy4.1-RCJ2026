@@ -1,7 +1,7 @@
 #include "sub_core.h"
 
 // 1. Define the actual memory for these variables here
-LineData line; 
+LineData lineData; 
 GyroData gyroData;       
 RobotStatus robot;
 MainCoreCommand mainCommand;
@@ -65,12 +65,18 @@ int readMux(int ch, int sig) {
 }
 
 void update_line_sensor(){
-    for (int i = 0; i < 32; i++) {
-        int val = readMux(i % 16, (i < 16) ? M1 : M2);
-        if (val > avg_ls[i]) {
-            line.state |= (1UL << i);
-        }
+  lineData.state = 0xFFFFFFFF;
+  
+  for (uint8_t i = 0; i < LS_count; i++) {
+    uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);;
+    
+    if (reading < avg_ls[i]) {
+      lineData.state &= ~(1UL << i); 
+      //Serial.printf("%d,%d",i,reading);
+      //Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
+      //Serial.println();
     }
+  }
 }
 
 void update_gyro_sensor(){
@@ -245,10 +251,10 @@ void readMotorandSendSensors() {
             res[0] = PROTOCAL_HEADER;
             float temp = fmod((90 - gyroData.heading + 360), 360);
             res[1] = (uint8_t)(temp / 10.0);
-            res[2] = (uint8_t)(line.state & 0xFF);
-            res[3] = (uint8_t)((line.state >> 8) & 0xFF);
-            res[4] = (uint8_t)((line.state >> 16) & 0xFF);
-            res[5] = (uint8_t)((line.state >> 24) & 0xFF);
+            res[2] = (uint8_t)(lineData.state & 0xFF);
+            res[3] = (uint8_t)((lineData.state >> 8) & 0xFF);
+            res[4] = (uint8_t)((lineData.state >> 16) & 0xFF);
+            res[5] = (uint8_t)((lineData.state >> 24) & 0xFF);
             res[6] = PROTOCAL_END;
 
             // 3. Respond exactly once per received command

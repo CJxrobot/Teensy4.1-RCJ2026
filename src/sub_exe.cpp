@@ -28,7 +28,6 @@ void t_mode_main_function() {
 
 void setup(){
   sub_core_init();
-
   while(1){
   Serial.println("Waiting for MainCore...");
     if(Serial8.available()){
@@ -45,6 +44,12 @@ void setup(){
 void loop(){
   while(1){
     update_gyro_sensor();
+    update_line_sensor();
+    Serial.printf("Gyro Heading: %f\n", gyroData.heading);
+    for(uint8_t i = 0; i < 32; i++){
+      Serial.printf("%d", (lineData.state >> i) & 1);
+    }
+    Serial.println();
     if (Serial8.available()) {
       uint8_t cmd = Serial8.read();
       //Serial.print(cmd);
@@ -66,16 +71,19 @@ void loop(){
                 break;
               }
             }
-            for (int i = 0; i < 32; i++) {
-              int r = readMux(i % 16, (i < 16) ? M1 : M2);
+            for (int i = 0; i < LS_count; i++) {
+              int r = readMux(i % 16, (i < 16) ? 1 : 2);
               if (r > max_ls[i]) max_ls[i] = r; 
               if (r < min_ls[i]) min_ls[i] = r;
             }
           }
 
-          for (int i = 0; i < 32; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
+          for (int i = 0; i < LS_count; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
+          for (int i = 0; i < LS_count; i++) {
+            Serial.printf("Sensor %d: min=%d, max=%d, avg=%d\n", i, min_ls[i], max_ls[i], avg_ls[i]);
+          }
           EEPROM.put(0, avg_ls);
-          delay(100); // Ensure EEPROM write completes
+          delay(1000); // Ensure EEPROM write completes
           Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
         } 
       else if (cmd == MOVE_CMD) {// When BTN_UP is pressed, send a move command to the main core

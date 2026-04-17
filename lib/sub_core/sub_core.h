@@ -34,6 +34,7 @@
 #define DIRA_4 37    // 方向控制腳1
 #define DIRB_4 36 
 
+#define LS_count 32
 
 
 // --- Data Structures ---
@@ -70,7 +71,7 @@ struct RobotStatus {
 
 
 // --- Global Variable Declarations (Externs) ---
-extern LineData line;           
+extern LineData lineData;           
 extern MainCoreCommand mainCommand; // Added for MainCoreCommand usage  
 extern GyroData gyroData;       
 extern RobotStatus robot;        // Added to match Vector_Motion usage
