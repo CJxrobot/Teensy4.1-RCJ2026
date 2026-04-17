@@ -34,8 +34,7 @@
 #define DIRA_4 37    // 方向控制腳1
 #define DIRB_4 36 
 
-//LED Pins
-#define LED_BUILTIN 13
+
 
 // --- Data Structures ---
 
