@@ -197,30 +197,24 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading) {
 }
 
 void readMotor() {
-    // 1. Keep looping as long as there is data to look at
+    // Process all available bytes to find a valid packet
     while (Serial8.available() >= 6) {
-        
-        // Peek at the first byte to see if it's the header
         if (Serial8.peek() != PROTOCAL_HEADER) {
-            Serial8.read(); // Not the header? Toss it and check the next byte
+            Serial8.read(); 
             continue;
         }
 
-        // 2. If we are here, the first byte is the header. 
         uint8_t buf[6];
-        Serial8.readBytes(buf, 6); // Read the full 6-byte packet
+        Serial8.readBytes(buf, 6);
 
-        // 3. Double check the footer to ensure the packet isn't corrupted
-        if (buf[5] != PROTOCAL_END) {
-            Serial.println("Error: Header matched but Footer failed.");
-            continue; 
+        if (buf[5] == PROTOCAL_END) {
+            // 1. Update motor values
+            mainCommand.vx = (float)((int8_t)buf[1]);
+            mainCommand.vy = (float)((int8_t)buf[2]);
+            mainCommand.rot_v = (float)((int8_t)buf[3]) / 100.0f;
+            mainCommand.heading = (uint16_t)((int8_t)buf[4]) * 10;
+            break; 
         }
-
-        // 4. Success! Now parse the data
-        mainCommand.vx = (float)((int8_t)buf[1]);
-        mainCommand.vy = (float)((int8_t)buf[2]);
-        mainCommand.rot_v = (float)((int8_t)buf[3]) / 100.0f;
-        mainCommand.heading = (uint16_t)((int8_t)buf[4]) * 10;
     }
 }
 

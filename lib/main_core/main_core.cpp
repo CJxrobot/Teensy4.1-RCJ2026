@@ -407,7 +407,8 @@ void sendMotorAndGetSensors(float vx, float vy, float rot_v, int target_heading)
                 subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | 
                                         ((uint32_t)buf[3] << 8) | buf[2];
             }
-        } else {
+        } 
+        else {
             Serial8.read(); // Clear one byte of junk if it's not the header
         }
     } 
