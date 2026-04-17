@@ -26,8 +26,11 @@
 #define alpha 0.75  
 
 // --- Goal Localization Thresholds ---
-#define GOAL_LOCALIZATION_THRESHOLD_L 20
-#define GOAL_LOCALIZATION_THRESHOLD_H 70
+#define Y_LOCALIZE_THRESHOLD_L 20
+#define Y_LOCALIZE_THRESHOLD_H 70
+#define X_LOCALIZE_THRESHOLD_L 0   
+#define X_LOCALIZE_THRESHOLD_H 320
+
 #define GOAL_LOCALIZATION_C1 3335.0
 
 
@@ -53,6 +56,12 @@ struct USSensor {
     uint16_t dist_r = 0; uint16_t dist_f = 0;
 };
 
+struct RobotMovement {
+    float vx = 0.0f; float vy = 0.0f; float rot_v = 0.0f;
+    uint16_t heading = 0; // Target heading in degrees
+};
+
+
 struct SubCoreData {
     uint32_t lineState = 0x0000; // 16 sensors, 1 bit each
     int16_t gyroHeading = 0; // 0-359 degrees
@@ -66,6 +75,7 @@ extern CamData camData;
 extern BallData ballData;
 extern USSensor usData;
 extern SubCoreData subCoreData;
+extern RobotMovement robotMovement;
 extern Adafruit_SSD1306 display;
 
 
@@ -81,4 +91,6 @@ bool UI_Interface();
 void readGyroAndLineFromSubCore();
 void sendMotor(float vx, float vy, float rot_v, int heading);
 void sendMotorAndGetSensors(float vx, float vy, float rot_v, int heading);
+void localizeRobot();
+bool move_to_position(int pos_x, int pos_y);
 #endif

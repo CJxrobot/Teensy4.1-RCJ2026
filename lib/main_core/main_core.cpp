@@ -6,6 +6,7 @@ CamData camData;
 BallData ballData;
 USSensor usData;
 SubCoreData subCoreData;
+RobotMovement robotMovement;
 
 struct Point {
     float x;
@@ -230,78 +231,143 @@ void readussensor() {
         }
         lastReadTime = millis();
     }
-    if(camData.goal_valid){
-        int16_t goal_height = 0;
-        goal_height = camData.goal_h;
-        if(goal_height > GOAL_LOCALIZATION_THRESHOLD_L && goal_height < GOAL_LOCALIZATION_THRESHOLD_H){
-            RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
+}
+
+void update_all_sensor(){
+    readBallCam();
+    readFrontCam();
+    readussensor();
+}
+
+void localizeRobot() {
+    // 1. Use Ultrasonic Sensors to get a rough estimate of the robot's position relative to the center line and the goal
+    RobotPos.x = usData.dist_l - usData.dist_r;
+
+    if(usData.dist_f < 50){ // If something is very close in front, we might be near the goal line
+        RobotPos.y = 120 - usData.dist_f; // Assuming the field is 100 units deep and the robot is facing forward
+    }
+    else if(usData.dist_b < 50){ // If something is very close in back, we might be near the center line
+        RobotPos.y = usData.dist_b - 120; // Assuming the robot starts at y=0 near the center line
+    }
+    else{
+        // 3. If the front camera sees the goal, use its perceived height to refine the distance estimate to the goal
+        if(camData.goal_valid){
+            int16_t goal_height = camData.goal_h;
+            if(goal_height > Y_LOCALIZE_THRESHOLD_L && goal_height < Y_LOCALIZE_THRESHOLD_H){
+                RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
+            }
+            int16_t goal_x = camData.goal_x; 
+            if(goal_height > X_LOCALIZE_THRESHOLD_L && goal_height < X_LOCALIZE_THRESHOLD_H){
+                RobotPos.y = goal_x - 160; // Assuming 160 is the center x of the camera view
+            }
         }
     }
-
-/*
-    // 防止除以零（設定一個極小距離）
-    float safe_l = max(usData.dist_l, 1.0f);
-    float safe_r = max(usData.dist_r, 1.0f);
-    float safe_f = max(usData.dist_f, 1.0f);
-    float safe_b = max(usData.dist_b, 1.0f);
-
-    // --- 計算 X 坐標 (Left & Right) ---
-    // 權重與距離成反比
-    float w_l = 1.0f / safe_l;
-    float w_r = 1.0f / safe_r;
-    
-    // 假設左傳感器坐標為 -10cm，右傳感器為 +10cm (請根據實際安裝位置修改)
-    float left_pos_x = -8.0f; 
-    float right_pos_x = 8.0f;
-    
-    targetPos.x = (w_l * left_pos_x + w_r * right_pos_x) / (w_l + w_r);
-
-    // --- 計算 Y 坐標 (Front & Back) ---
-    float w_f = 1.0f / safe_f;
-    float w_b = 1.0f / safe_b;
-
-    // 假設前傳感器坐標為 +15cm，後傳感器為 -15cm
-    float front_pos_y = 8.0f;
-    float back_pos_y = -8.0f;
-
-    targetPos.y = (w_f * front_pos_y + w_b * back_pos_y) / (w_f + w_b);
-*/
-    // 1. 取得濾波後的距離（確保單位一致，假設為 cm）
-    float dl = usData.dist_l;
-    float dr = usData.dist_r;
-    float df = usData.dist_f;
-    float db = usData.dist_b;
-
-    // 2. 避免極小值導致權重爆炸 (Divide by Zero)
-    const float min_dist = 1.0f; 
-    if (dl < min_dist) dl = min_dist;
-    if (dr < min_dist) dr = min_dist;
-    if (df < min_dist) df = min_dist;
-    if (db < min_dist) db = min_dist;
-
-    // 3. 定義傳感器的「物理安裝位置」(這決定了坐標的量級)
-    // 如果你希望坐標範圍大一點，這裡的值要根據機器人實際尺寸設定
-    const float L_POS_X = -8.0f; // 左傳感器在 x = -20cm
-    const float R_POS_X =  8.0f; // 右傳感器在 x =  20cm
-    const float F_POS_Y =  8.0f; // 前傳感器在 y =  20cm
-    const float B_POS_Y = -8.0f; // 後傳感器在 y = -20cm
-
-    // 4. 計算權重 (使用平方反比會讓「近距離」的影響力更誇張)
-    // 如果想要平緩一點，用 1.0f / dl 即可
-    float wl = 1.0f / (dl * dl); 
-    float wr = 1.0f / (dr * dr);
-    float wf = 1.0f / (df * df);
-    float wb = 1.0f / (db * db);
-
-    float obs_l = L_POS_X - dl; // 實際左側物體位置
-    float obs_r = R_POS_X + dr; // 實際右側物體位置
-    float obs_f = F_POS_Y + df; // 實際前方物體位置
-    float obs_b = B_POS_Y - db; // 實際後方物體位置
-
-    RobotPos.x = (wl * obs_l + wr * obs_r) / (wl + wr);
-    RobotPos.y = (wf * obs_f + wb * obs_b) / (wf + wb);
-    
 }
+
+
+bool move_to_position(int pos_x, int pos_y){
+    while(1){
+        update_all_sensor();
+        localizeRobot();
+        Serial.printf("RobotPos: (%.2f, %.2f)\n", RobotPos.x, RobotPos.y);
+        int16_t dx = pos_x - RobotPos.x;
+        int16_t dy = pos_y - RobotPos.y;
+        if(abs(dx) < 10){
+            sendMotor(0, 0, 0, subCoreData.gyroHeading); // Stop the robot
+            break; // Target reached
+        }
+        robotMovement.vx = dx * 0.1 * 20;
+        robotMovement.vy = 0;
+        if(robotMovement.vx != 0){
+            if(robotMovement.vx > 30) robotMovement.vx = 30;
+            if(robotMovement.vx < 15 && robotMovement.vx > 0) robotMovement.vx = 15;
+            if(robotMovement.vx < -30) robotMovement.vx = -30;
+            if(robotMovement.vx > -15 && robotMovement.vx < 0) robotMovement.vx = -15;
+        }
+        if(robotMovement.vy != 0){
+            if(robotMovement.vy > 30) robotMovement.vy = 30;
+            if(robotMovement.vy < 15 && robotMovement.vy > 0) robotMovement.vy = 15;
+            if(robotMovement.vy < -30) robotMovement.vy = -30;
+            if(robotMovement.vy > -15 && robotMovement.vy < 0) robotMovement.vy = -15;
+        }
+        //robotMovement.vy = dy / unit_v * 20;
+        sendMotorAndGetSensors(robotMovement.vx, robotMovement.vy, 0, 90); // Move towards target, maintain current heading
+        Serial.printf("vx: %.2f, vy: %.2f\n", robotMovement.vx, robotMovement.vy);
+    }
+    return true;
+}
+
+bool turn_to(int heading){
+    ;
+    return true;    
+}
+
+bool move_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+bool turn_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+bool move_until(){
+    ;
+    return true;
+}
+
+bool turn_until(){
+    ;
+    return true;
+}
+
+
+void sendMotor(float vx, float vy, float rot_v, int target_heading) {
+    uint8_t data[6];
+    data[0] = PROTOCAL_HEADER;
+    data[1] = (int8_t)vx;
+    data[2] = (int8_t)vy;
+    // Scale up by 100 so we don't lose decimals (e.g., 0.5 rad/s becomes 50)
+    data[3] = (int8_t)(rot_v * 100.0f);
+    // Scale down by 10 to fit 0-360 into a single byte (0-36)
+    data[4] = (int8_t)(target_heading / 10);
+    data[5] = PROTOCAL_END;
+    Serial8.write(data, sizeof(data));
+}
+
+void sendMotorAndGetSensors(float vx, float vy, float rot_v, int target_heading) {
+    // 1. Send the command ONLY once.
+    // To avoid flooding, you should only call this function at a set interval (e.g. 20ms)
+    uint8_t data[6];
+    data[0] = PROTOCAL_HEADER;
+    data[1] = (int8_t)vx;
+    data[2] = (int8_t)vy;
+    data[3] = (int8_t)(rot_v * 100.0f);
+    data[4] = (int8_t)(target_heading / 10);
+    data[5] = PROTOCAL_END;
+    
+    Serial8.write(data, sizeof(data));
+
+    // 2. Try to read the response from the PREVIOUS command.
+    // If it's not here yet, we don't wait. We move on to keep the robot moving.
+    if(Serial8.available() >= 7) { 
+        if (Serial8.peek() == PROTOCAL_HEADER) {
+            uint8_t buf[7];
+            Serial8.readBytes(buf, 7);
+            if (buf[6] == PROTOCAL_END) {                
+                subCoreData.gyroHeading = buf[1] * 10;
+                subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | 
+                                        ((uint32_t)buf[3] << 8) | buf[2];
+            }
+        } 
+        else {
+            Serial8.read(); // Clear one byte of junk if it's not the header
+        }
+    } 
+}
+
+
 
 bool UI_Interface(){
     readussensor();
@@ -367,69 +433,5 @@ bool UI_Interface(){
             }
             break;
     }
-    return true;
-}
-
-void sendMotor(float vx, float vy, float rot_v, int target_heading) {
-    uint8_t data[6];
-    data[0] = PROTOCAL_HEADER;
-    data[1] = (int8_t)vx;
-    data[2] = (int8_t)vy;
-    // Scale up by 100 so we don't lose decimals (e.g., 0.5 rad/s becomes 50)
-    data[3] = (int8_t)(rot_v * 100.0f);
-    // Scale down by 10 to fit 0-360 into a single byte (0-36)
-    data[4] = (int8_t)(target_heading / 10);
-    data[5] = PROTOCAL_END;
-    Serial8.write(data, sizeof(data));
-}
-
-void sendMotorAndGetSensors(float vx, float vy, float rot_v, int target_heading) {
-    // 1. Send the command ONLY once.
-    // To avoid flooding, you should only call this function at a set interval (e.g. 20ms)
-    uint8_t data[6];
-    data[0] = PROTOCAL_HEADER;
-    data[1] = (int8_t)vx;
-    data[2] = (int8_t)vy;
-    data[3] = (int8_t)(rot_v * 100.0f);
-    data[4] = (int8_t)(target_heading / 10);
-    data[5] = PROTOCAL_END;
-    
-    Serial8.write(data, sizeof(data));
-
-    // 2. Try to read the response from the PREVIOUS command.
-    // If it's not here yet, we don't wait. We move on to keep the robot moving.
-    if(Serial8.available() >= 7) { 
-        if (Serial8.peek() == PROTOCAL_HEADER) {
-            uint8_t buf[7];
-            Serial8.readBytes(buf, 7);
-            if (buf[6] == PROTOCAL_END) {                
-                subCoreData.gyroHeading = buf[1] * 10;
-                subCoreData.lineState = ((uint32_t)buf[5] << 24) | ((uint32_t)buf[4] << 16) | 
-                                        ((uint32_t)buf[3] << 8) | buf[2];
-            }
-        } 
-        else {
-            Serial8.read(); // Clear one byte of junk if it's not the header
-        }
-    } 
-}
-
-bool move_to(int pos_x, int pos_y){
-    ;
-    return true;
-}
-
-bool turn_to(int heading){
-    ;
-    return true;    
-}
-
-bool move_in_second(int vx, int vy, int s){
-    ;
-    return true;
-}
-
-bool turn_in_second(int vx, int vy, int s){
-    ;
     return true;
 }

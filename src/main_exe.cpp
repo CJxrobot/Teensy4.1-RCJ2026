@@ -8,12 +8,12 @@ void t_mode_main_function();
 
 void t_mode_main_function() {
     Serial.println("Tmode Started");
+    move_to_position(0, 100); // Move to (100, 100)
+    
+    
+    //Missioin Complete, stop the robot
     while(1) {
-        readBallCam();
-        readFrontCam();
-        readussensor();
-        sendMotorAndGetSensors(0, 20, 0, 90);
-        Serial.printf("gyro:%d, line:%lu\n", subCoreData.gyroHeading, subCoreData.lineState);
+        sendMotor(0, 0, 0, subCoreData.gyroHeading); // Stop the robot
     }
 }
 

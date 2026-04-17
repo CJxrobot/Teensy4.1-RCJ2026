@@ -59,7 +59,9 @@ struct GyroData {
 // Robot global configuration and tuning parameters
 struct RobotStatus {
     float robot_heading = 90.0f;      // Target heading
-    float P_factor = 0.7f;            // Proportional gain for rotation
+    //float P_factor = 0.7;         // Pololu Motor
+    float P_factor = 0.85f;           // Proportional gain for rotation
+
     float heading_threshold = 10.0f;  // Deadband (degrees)
     int8_t def_pos = 0;               // Default position state
     bool picked_up = false;           // Lift detection flag
