@@ -12,8 +12,7 @@ void t_mode_main_function() {
         readBallCam();
         readFrontCam();
         readussensor();
-        sendMotorAndGetSensors(0, 0, 0, 90);
-        //writeMotorCommand(10, 10, 0, 20); // Placeholder for actual command logic
+        sendMotorAndGetSensors(0, 20, 0, 90);
         Serial.printf("gyro:%d, line:%lu\n", subCoreData.gyroHeading, subCoreData.lineState);
     }
 }

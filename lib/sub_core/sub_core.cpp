@@ -23,18 +23,22 @@ void sub_core_init() {
     // Motor Initialization
     // Motor 1
     pinMode(pwmPin1, OUTPUT);
+    analogWriteFrequency(pwmPin1, 5000); // Set to 5 kHz
     pinMode(DIRA_1, OUTPUT);
     pinMode(DIRB_1, OUTPUT);
     // Motor 2
     pinMode(pwmPin2, OUTPUT);
+    analogWriteFrequency(pwmPin2, 5000); // Set to 5 kHz
     pinMode(DIRA_2, OUTPUT);
     pinMode(DIRB_2, OUTPUT);
     // Motor 3
     pinMode(pwmPin3, OUTPUT);
+    analogWriteFrequency(pwmPin3, 5000); // Set to 5 kHz
     pinMode(DIRA_3, OUTPUT);
     pinMode(DIRB_3, OUTPUT);
     // Motor 4
     pinMode(pwmPin4, OUTPUT);
+    analogWriteFrequency(pwmPin4, 5000); // Set to 5 kHz
     pinMode(DIRA_4, OUTPUT);
     pinMode(DIRB_4, OUTPUT);
 
