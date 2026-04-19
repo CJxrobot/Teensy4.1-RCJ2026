@@ -94,4 +94,5 @@ void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
 void readMotor();
 void readMotorandSendSensors();
+void send_cam_and_pos_data();
 #endif

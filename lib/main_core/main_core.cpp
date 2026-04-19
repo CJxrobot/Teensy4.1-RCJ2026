@@ -20,8 +20,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 enum RobotState { STATE_READY, STATE_CALIBRATING, STATE_SAVING };
 RobotState currentState = STATE_READY;
 // --- Kicker Constants ---
-#define Charge_Pin 24 // Update to your actual pins
-#define Kicker_Pin 25
+#define Charge_Pin 33 // Update to your actual pins
+#define Kicker_Pin 32
 
 void main_core_init() {
     // Initialize all Hardware Serials
@@ -44,15 +44,15 @@ void main_core_init() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     
-    // Pin Setup
+    // Pin Setups
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(Charge_Pin, OUTPUT);
     pinMode(Kicker_Pin, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH);
     
     // Ensure kicker starts safe
-    digitalWrite(Charge_Pin, LOW);
-    digitalWrite(Kicker_Pin, LOW);
+    digitalWrite(Charge_Pin, HIGH); // Start charging
+    digitalWrite(Kicker_Pin, HIGH);
 
     // Button
     pinMode(BTN_UP, INPUT_PULLUP);
@@ -434,4 +434,28 @@ bool UI_Interface(){
             break;
     }
     return true;
+}
+
+
+
+void send_cam_and_pos_data() {
+    // Send ball cam data
+    uint8_t data[10];
+    data[0] = PROTOCAL_HEADER;
+    data[1] = (uint8_t)(ballData.valid);
+    data[2] = (uint8_t)(ballData.angle & 0xFF); //lower bit
+    data[3] = (uint8_t)((ballData.angle >> 8) & 0xFF); //higher bit
+    data[4] = (uint8_t)(ballData.dist & 0xFF); //lower bit
+    data[5] = (uint8_t)((ballData.dist >> 8) & 0xFF); //higher bit
+    data[6] = (int8_t)(RobotPos.x);
+    data[7] = (int8_t)(RobotPos.y);
+    uint8_t checksum = 0;
+    for(uint8_t i = 0; i < 8; i++){
+        checksum += data[i];
+    }
+    data[8] = checksum % 256; // checksum
+    data[9] = PROTOCAL_END;
+    // pos.x pos.y
+    // ball.valid ball.x ball.y
+    Serial8.write(data, sizeof(data));
 }
