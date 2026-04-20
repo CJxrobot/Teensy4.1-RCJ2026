@@ -3,8 +3,8 @@
 
 
 // Toggle these as needed
-#define T_MODE
-
+//#define T_MODE
+#define C_MODE
 
 
 #define T_MODE_HEADER 0x11
@@ -16,7 +16,7 @@
 #define LS_CAL_ACK   0x67  // Acknowledgment (Save Complete)
 #define MOVE_CMD     0x68  // Start Command
 #define SUBCORE_SENSOR_DATA 0x69  // Sub-core sends sensor data
-
+#define GET_MAIN_DATA 0x6A  // Main-core requests cam and pos data
 
 // Protocal
 #define PROTOCAL_HEADER 0xBB   // Start Action/Match Mode
@@ -25,6 +25,6 @@
 
 
 // --- Configuration Constants ---
-#define MAX_V 60
+#define MAX_V 30
 
 #endif

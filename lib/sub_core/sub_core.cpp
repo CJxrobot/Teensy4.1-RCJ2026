@@ -5,6 +5,11 @@ LineData lineData;
 GyroData gyroData;       
 RobotStatus robot;
 MainCoreCommand mainCommand;
+
+// --- Sensor Data ---
+BallData ballData;
+Position RobotPos;
+
 uint16_t avg_ls[34];
 
 void sub_core_init() {

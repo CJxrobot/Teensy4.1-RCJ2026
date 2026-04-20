@@ -60,6 +60,20 @@ struct GyroData {
     bool exist = false;
 };
 
+
+struct BallData {
+    uint16_t dist = 255; uint16_t angle = 255;
+    uint16_t possession = 255; bool valid = false;
+    float Vx; float Vy;
+};
+
+struct Position {
+    int x; // -90 to 90, where 0 is near the center line and 90 is near the goal line
+    int y; // -120 to 120
+};
+
+
+
 // Robot global configuration and tuning parameters
 struct RobotStatus {
     float robot_heading = 90.0f;      // Target heading
@@ -79,6 +93,9 @@ extern MainCoreCommand mainCommand; // Added for MainCoreCommand usage
 extern GyroData gyroData;       
 extern RobotStatus robot;        // Added to match Vector_Motion usage
 extern uint16_t avg_ls[34];
+extern BallData ballData;
+extern Position RobotPos;
+
 
 // --- Core Function Prototypes ---
 void sub_core_init();
@@ -94,5 +111,5 @@ void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
 void readMotor();
 void readMotorandSendSensors();
-void send_cam_and_pos_data();
+void read_cam_and_pos_data();
 #endif

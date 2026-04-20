@@ -3,25 +3,135 @@ uint8_t op_mode;
 
 void c_mode_main_function() {
     Serial.println("Cmode Started");
-    while(1) {
-        update_line_sensor(); // Keep updating sensors!
-        update_gyro_sensor();
-        // Add logic here
-        readMotor();
-        //White Line Handling Example
-        bool front_touch = analogRead(Front_LS) < avg_ls[32];
-        bool mid_touch = analogRead(Mid_LS) < avg_ls[33];
-        Serial.printf("Front LS: %d, Mid LS: %d\n", front_touch, mid_touch);
-        if(front_touch){
-          //前進
-          ;
-        }
+    unsigned long f_front_line_timer = 0;
+    unsigned long f_back_line_timer = 0;
+    unsigned long left_line_timer = 0;
+    unsigned long right_line_timer = 0;
+    while (1){
+      read_cam_and_pos_data();
+      update_line_sensor(); // Keep updating sensors!
+      update_gyro_sensor();
+      Serial.printf("Gyro Heading: %f\n", gyroData.heading);
+      Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
+      Serial.printf("Robot Pos: (%f, %f)\n", RobotPos.x, RobotPos.y);
+      float line_vx = 0;
+      float line_vy = 0;
+      float ball_vx = 0;
+      
+      bool f_back_touch = !((lineData.state >> 8) & 1); // Example: using the first line sensor as f_back touch
+      static bool f_back_touch_state = false;
+      bool front_touch = analogRead(Front_LS) < avg_ls[32];
+      static bool f_front_touch_state = false;
+      bool mid_touch = analogRead(Mid_LS) < avg_ls[33];
+
+      bool left_in_touch = !((lineData.state >> 20) & 1) || !((lineData.state >> 21) & 1);
+      bool left_out_touch = !((lineData.state >> 15) & 1) || !((lineData.state >> 16) & 1) || !((lineData.state >> 17) & 1);
+      static bool left_touch_state = false;
+
+      bool right_in_touch = !((lineData.state >> 27) & 1) || !((lineData.state >> 28) & 1);
+      bool right_out_touch = !((lineData.state >> 0) & 1) || !((lineData.state >> 1) & 1) || !((lineData.state >> 31) & 1);
+      static bool right_touch_state = false;
+
+      bool ball_left = ballData.valid && (ballData.angle > 105 && ballData.angle < 270);
+      bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
+
+      if(ball_left){
+        ball_vx = -MAX_V;
+      }
+      else if(ball_right){
+        ball_vx = MAX_V;
+      }
+      else if(!ball_left && !ball_right){
+        ball_vx = 0;
+      }
+
+      //Vy logic
+      /*Front Line Sensor Logic*/
+      if(front_touch && !f_front_touch_state){
+        f_front_touch_state = true;
+      }
+      else if(f_front_touch_state){
+        f_front_line_timer ++;
+        line_vy = (5 + f_front_line_timer * 0.1);
+        if(line_vy > MAX_V) line_vy = MAX_V;
         if(mid_touch){
-          //停止
-          ;
+          f_front_line_timer = 0;
+          line_vy = 0;
+          f_front_touch_state = false;
         }
-        Serial.printf("vx:%f, vy:%f, rot_v:%f\n", mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
-        Vector_Motion(mainCommand.vx, mainCommand.vy, mainCommand.rot_v);
+      }
+
+      /*f_back Line Sensor Logic*/
+      
+      if(f_back_touch && !f_back_touch_state){
+        f_back_touch_state = true;
+      }
+      else if(f_back_touch_state){
+        f_back_line_timer++;
+        line_vy = -(5 + f_back_line_timer * 0.1);
+        if(line_vy < -MAX_V) line_vy = -MAX_V;
+        if(mid_touch){
+          f_back_line_timer = 0;
+          line_vy = 0;
+          f_back_touch_state = false;
+        }
+      }
+
+      //Vx logic
+      if(left_in_touch && !left_touch_state && !right_touch_state){
+        left_touch_state = true;
+      }
+      else if(left_touch_state){
+        left_line_timer ++;
+        line_vx = (20 + left_line_timer * 0.05);
+        if(line_vx > MAX_V) line_vx = MAX_V;
+        if(left_out_touch && !left_in_touch){
+          line_vx = 0;
+          left_touch_state = false;
+        }
+      }
+
+      if(right_in_touch && !right_touch_state && !left_touch_state){
+        right_touch_state = true;
+      }
+      else if(right_touch_state){
+        right_line_timer ++;
+        line_vx = -(20 + right_line_timer * 0.05);
+        if(line_vx < -MAX_V) line_vx = -MAX_V;
+        if(right_out_touch && !right_in_touch){
+          line_vx = 0;
+          right_touch_state = false;          
+        }
+      }
+
+      if(line_vx != 0 && line_vy < 0){
+        line_vy = 0;
+      }
+      float vx = line_vx;
+      float vy = line_vy;
+      if(line_vx == 0){
+        vx = ball_vx;
+      }
+      if((ball_vx > 0 && line_vx > 0) || (ball_vx < 0 && line_vx < 0)){
+        vx = ball_vx; 
+      }
+      if(ball_vx > 0 && right_out_touch){
+        vx = 0;
+      }
+      if(ball_vx < 0 && right_out_touch){
+        vx = ball_vx;
+      }
+      if(ball_vx < 0 && left_out_touch){
+        vx = 0;
+      }
+      if(ball_vx > 0 && left_out_touch){
+        vx = ball_vx;
+      }
+      /* Issue 當 line_vx 上飄 , line_vy 同時出現 conflict */
+      //Serial.printf("Front LS: %d, Mid LS: %d, Back LS: %d\n",  int(front_touch), int(mid_touch), int(f_back_touch));
+      Serial.printf("LEFT IN LS: %d, LEFT OUT LS %d", left_in_touch, left_out_touch);
+      Serial.printf("vx: %f, vy: %f\n", vx, vy);
+      FC_Vector_Motion(vx, vy, 90); 
     }
 }
 

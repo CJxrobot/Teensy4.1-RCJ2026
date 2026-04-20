@@ -93,6 +93,6 @@ void sendMotor(float vx, float vy, float rot_v, int heading);
 void sendMotorAndGetSensors(float vx, float vy, float rot_v, int heading);
 void localizeRobot();
 bool move_to_position(int pos_x, int pos_y);
-void read_cam_and_pos_data();
+void send_cam_and_pos_data();
 void update_all_sensor();
 #endif
