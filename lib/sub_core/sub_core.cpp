@@ -13,7 +13,7 @@ Position RobotPos;
 uint16_t avg_ls[34];
 
 void sub_core_init() {
-    Serial8.begin(115200); // For communication with MainCore
+    Serial8.begin(921600); // For communication with MainCore
     Serial2.begin(115200); // For gyro sensor
     Serial.begin(115200);  // For debugging
 

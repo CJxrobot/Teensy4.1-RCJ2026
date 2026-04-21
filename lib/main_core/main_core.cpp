@@ -32,7 +32,7 @@ void main_core_init() {
     Serial5.begin(115200);
     Serial6.begin(115200); 
     Serial7.begin(115200);
-    Serial8.begin(115200);
+    Serial8.begin(921600);
 
     Wire.begin();
     Wire.setClock(400000); // Fast I2C for OLED
