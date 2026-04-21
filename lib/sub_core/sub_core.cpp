@@ -13,7 +13,7 @@ Position RobotPos;
 uint16_t avg_ls[34];
 
 void sub_core_init() {
-    Serial8.begin(115200); // For communication with MainCore
+    Serial8.begin(921600); // For communication with MainCore
     Serial2.begin(115200); // For gyro sensor
     Serial.begin(115200);  // For debugging
 
@@ -272,9 +272,6 @@ void readMotorandSendSensors() {
 
 
 void read_cam_and_pos_data() {
-
-    Serial8.write(GET_MAIN_DATA);
-
     while (1) {
 
         static uint32_t lastReq = 0;
@@ -297,7 +294,7 @@ void read_cam_and_pos_data() {
         if (buf[0] != PROTOCAL_HEADER) continue;
 
         uint8_t checksum = 0;
-        for (int i = 0; i < 8; i++) {
+        for (int i = 1; i < 8; i++) {
             checksum += buf[i];
         }
 
