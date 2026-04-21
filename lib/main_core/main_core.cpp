@@ -128,8 +128,9 @@ void readBallCam() {
               ballData.angle = (uint16_t)buffer[1] | ((uint16_t)buffer[2] << 8);
               ballData.dist  = (uint16_t)buffer[3] | ((uint16_t)buffer[4] << 8);
             
-               if(ballData.angle != 65535 && ballData.dist != 65535)
-                ballData.valid = true;
+               if(ballData.angle != 65535 && ballData.dist != 65535){
+                 ballData.valid = true;
+               }
                else{
                 ballData.valid = false;
                }  //無球
@@ -240,30 +241,32 @@ void update_all_sensor(){
 }
 
 void localizeRobot() {
-    // 1. Use Ultrasonic Sensors to get a rough estimate of the robot's position relative to the center line and the goal
+    // X axis: ultrasonic default
     RobotPos.x = usData.dist_l - usData.dist_r;
 
-    if(usData.dist_f < 50){ // If something is very close in front, we might be near the goal line
-        RobotPos.y = 120 - usData.dist_f; // Assuming the field is 100 units deep and the robot is facing forward
+    // Y axis: ultrasonic near-wall estimates
+    if(usData.dist_f < 50){
+        RobotPos.y = 120 - usData.dist_f;
     }
-    else if(usData.dist_b < 50){ // If something is very close in back, we might be near the center line
-        RobotPos.y = usData.dist_b - 120; // Assuming the robot starts at y=0 near the center line
+    else if(usData.dist_b < 50){
+        RobotPos.y = -(120 - usData.dist_b);
     }
-    else{
-        // 3. If the front camera sees the goal, use its perceived height to refine the distance estimate to the goal
-        if(camData.goal_valid){
-            int16_t goal_height = camData.goal_h;
-            if(goal_height > Y_LOCALIZE_THRESHOLD_L && goal_height < Y_LOCALIZE_THRESHOLD_H){
-                RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
-            }
-            int16_t goal_x = camData.goal_x; 
-            if(goal_height > X_LOCALIZE_THRESHOLD_L && goal_height < X_LOCALIZE_THRESHOLD_H){
-                RobotPos.y = goal_x - 160; // Assuming 160 is the center x of the camera view
-            }
-        }
-    }
-}
+    else
+    // Camera refinement (only overwrites if goal visible and in valid range)
+    if(camData.goal_valid){
+        int16_t goal_height = camData.goal_h;
+        int16_t goal_x = camData.goal_x;
 
+        if(goal_height > Y_LOCALIZE_THRESHOLD_L && goal_height < Y_LOCALIZE_THRESHOLD_H){
+            RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
+        }
+
+    }        
+    /*
+        if(goal_height > X_LOCALIZE_THRESHOLD_L && goal_height < X_LOCALIZE_THRESHOLD_H){
+            RobotPos.x = goal_x - 160;
+    }*/
+}
 
 bool move_to_position(int pos_x, int pos_y){
     while(1){
@@ -277,7 +280,7 @@ bool move_to_position(int pos_x, int pos_y){
             break; // Target reached
         }
         robotMovement.vx = dx * 0.1 * 20;
-        robotMovement.vy = 0;
+        robotMovement.vy = 0;//to do
         if(robotMovement.vx != 0){
             if(robotMovement.vx > 30) robotMovement.vx = 30;
             if(robotMovement.vx < 15 && robotMovement.vx > 0) robotMovement.vx = 15;
@@ -297,30 +300,6 @@ bool move_to_position(int pos_x, int pos_y){
     return true;
 }
 
-bool turn_to(int heading){
-    ;
-    return true;    
-}
-
-bool move_in_second(int vx, int vy, int s){
-    ;
-    return true;
-}
-
-bool turn_in_second(int vx, int vy, int s){
-    ;
-    return true;
-}
-
-bool move_until(){
-    ;
-    return true;
-}
-
-bool turn_until(){
-    ;
-    return true;
-}
 
 
 void sendMotor(float vx, float vy, float rot_v, int target_heading) {
@@ -436,8 +415,6 @@ bool UI_Interface(){
     return true;
 }
 
-
-
 void send_cam_and_pos_data() {
     // Send ball cam data
     uint8_t data[10];
@@ -450,7 +427,7 @@ void send_cam_and_pos_data() {
     data[6] = (int8_t)(RobotPos.x);
     data[7] = (int8_t)(RobotPos.y);
     uint8_t checksum = 0;
-    for(uint8_t i = 0; i < 8; i++){
+    for(uint8_t i = 1; i < 8; i++){
         checksum += data[i];
     }
     data[8] = checksum % 256; // checksum
@@ -458,4 +435,29 @@ void send_cam_and_pos_data() {
     // pos.x pos.y
     // ball.valid ball.x ball.y
     Serial8.write(data, sizeof(data));
+}
+
+bool turn_to(int heading){
+    ;
+    return true;    
+}
+
+bool move_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+bool turn_in_second(int vx, int vy, int s){
+    ;
+    return true;
+}
+
+bool move_until(){
+    ;
+    return true;
+}
+
+bool turn_until(){
+    ;
+    return true;
 }
