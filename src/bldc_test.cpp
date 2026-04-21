@@ -26,6 +26,7 @@ void setup() {
 }
 
 void loop() {
+    /*
     for (int signal = 1450; signal <= 1500; signal += 10) {
         ESC.writeMicroseconds(signal);
         Serial.println(signal);
@@ -37,6 +38,6 @@ void loop() {
         Serial.println(signal);
         delay(2000);  // Slow enough for ESC to recognize change
         //Stop at 1500
-    }
-    
+    }*/
+    ESC.writeMicroseconds(1550);
 }

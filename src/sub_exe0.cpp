@@ -1,24 +1,6 @@
 #include <sub_core.h>
 uint8_t op_mode;
 
-float lineVx = 0;
-float lineVy = 0;
-
-// --- MATH CONSTANTS & CONTROL PARAMETERS ---
-#define DtoR_const 0.0174529f
-#define RtoD_const 57.2958f
-
-float ballDegreelist[16]={22.5,45,67.5,87.5,92.5,112.5,135,157.5,202.5,225,247.5,265,275,292.5,315,337.5};
-float linesensorDegreelist[32] = {
-    0.00, 11.25, 22.50, 33.75, 45.00, 56.25, 67.50, 78.75, 
-    90.00, 101.25, 112.50, 123.75, 135.00, 146.25, 157.50, 168.75, 
-    180.00, 191.25, 202.50, 213.75, 225.00, 236.25, 247.50, 258.75, 
-    270.00, 281.25, 292.50, 303.75, 315.00, 326.25, 337.50, 348.75
-};
-
-//Line Sensor
-#define EMERGENCY_THRESHOLD 90
-
 bool moveBackInBounds(){
   //-----LINE SENSOR-----
   float sumX = 0.0f, sumY = 0.0f;
@@ -33,9 +15,8 @@ bool moveBackInBounds(){
   static uint32_t speed_timer = 0;
 
   for(int i = 0; i < LS_count; i++){
-    if(i==7){continue;}
-      
     if(bitRead(lineData.state, i) == 0){
+      //if(i==0){continue;}
       
       //Serial.printf("read%d", i);
       
@@ -81,8 +62,9 @@ bool moveBackInBounds(){
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
     Serial.print("finalDegree =");Serial.println(finalDegree);
-    lineVx = 60.0 *cos(finalDegree * DtoR_const);
-    lineVy = 60.0 *sin(finalDegree * DtoR_const);   
+        
+    lineVx = 60.0f *cos(finalDegree * DtoR_const);
+    lineVy = 60.0f *sin(finalDegree * DtoR_const);   
     return true;
   }
   else{
@@ -95,6 +77,10 @@ bool moveBackInBounds(){
 
 void c_mode_main_function() {
     Serial.println("Cmode Started");
+    unsigned long f_front_line_timer = 0;
+    unsigned long f_back_line_timer = 0;
+    unsigned long left_line_timer = 0;
+    unsigned long right_line_timer = 0;
     while (1){
       read_cam_and_pos_data();
       update_line_sensor(); // Keep updating sensors!
@@ -102,78 +88,55 @@ void c_mode_main_function() {
       Serial.printf("Gyro Heading: %f\n", gyroData.heading);
       Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
       Serial.printf("Robot Pos: (%f, %f)\n", RobotPos.x, RobotPos.y);
+      float ball_vx = 0;
+      
+      bool f_back_touch = !((lineData.state >> 8) & 1); // Example: using the first line sensor as f_back touch
+      static bool f_back_touch_state = false;
+      bool front_touch = analogRead(Front_LS) < avg_ls[32];
+      static bool f_front_touch_state = false;
+      bool mid_touch = analogRead(Mid_LS) < avg_ls[33];
+
+      bool left_in_touch = !((lineData.state >> 20) & 1) || !((lineData.state >> 21) & 1);
+      bool left_out_touch = !((lineData.state >> 15) & 1) || !((lineData.state >> 16) & 1) || !((lineData.state >> 17) & 1);
+      static bool left_touch_state = false;
+
+      bool right_in_touch = !((lineData.state >> 27) & 1) || !((lineData.state >> 28) & 1);
+      bool right_out_touch = !((lineData.state >> 0) & 1) || !((lineData.state >> 1) & 1) || !((lineData.state >> 31) & 1);
+      static bool right_touch_state = false;
+
+      bool robot_back_touch = !((lineData.state >> 22) & 1) || !((lineData.state >> 23) & 1) || !((lineData.state >> 24) & 1) || !((lineData.state >> 25) & 1) || !((lineData.state >> 26) & 1);
+      bool robot_front_touch = !((lineData.state >> 6) & 1) || !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1) || !((lineData.state >> 9) & 1) || !((lineData.state >> 10) & 1);
+      bool vertical_line = robot_back_touch && robot_front_touch;
+
+      bool ball_left = ballData.valid && (ballData.angle > 105 && ballData.angle < 270);
+      bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
        
       //use Ultrasonic Sensor for localization
-      if(moveBackInBounds()){
-        Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
-        FC_Vector_Motion(lineVx, lineVy, 90);
-      }
-      else{
-        static unsigned long f_front_line_timer = 0;
-        static unsigned long f_back_line_timer = 0;
-        //Vy logic
-        float ball_vx = 0;
-        float ball_vy = 0;
-        bool f_back_touch = !((lineData.state >> 8) & 1); // Example: using the first line sensor as f_back touch
-        static bool f_back_touch_state = false;
-        bool front_touch = analogRead(Front_LS) < avg_ls[32];
-        static bool f_front_touch_state = false;
-        bool mid_touch = analogRead(Mid_LS) < avg_ls[33];
-        bool ball_left = ballData.valid && (ballData.angle > 105 && ballData.angle < 270);
-        bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
-        if (ball_left) {
-            // 180° = fully left (MAX_V), 90°/270° = barely left (0)
-            ball_vx = -MAX_V * (1.0f - abs(180 - ballData.angle) / 90.0f);
-        }
-        else if (ball_right) {
-            // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
-            int angle = ballData.angle;
-            float dist = (angle <= 85) ? angle : (360 - angle); // distance from 0°/360°
-            ball_vx = MAX_V * (1.0f - dist / 90.0f);
-        }
-        else if(!ball_left && !ball_right){
-          ball_vx = 0;
-        }
-        if(front_touch && !f_front_touch_state){
-          f_front_touch_state = true;
-          f_front_line_timer = millis();
-        }
-
-        if(f_back_touch && !f_back_touch_state){
-          f_back_touch_state = true;
-          f_back_line_timer = millis();
-        }
-
-        //Reset Vy timer
-        if(mid_touch){
-          f_back_line_timer = 0;
-          f_front_line_timer = 0;
-          f_back_touch_state = false;
-          f_front_touch_state = false; 
-        }
-        Serial.println(f_front_line_timer, f_back_line_timer);
-        if(f_front_line_timer && f_back_line_timer == 0){
-          ball_vy = (5 + (millis() - f_front_line_timer) * 0.1);
-          if(ball_vy > MAX_V) ball_vy = MAX_V;
-        }
-        else if(f_front_line_timer == 0 && f_back_line_timer){
-          ball_vy = -(5 + (millis() - f_back_line_timer) * 0.1);
-          if(ball_vy < -MAX_V) ball_vy = -MAX_V;
-        }
-        FC_Vector_Motion(ball_vx, ball_vy, 90);
-      }
-
-
-      /*
-      //Ball Tracking
       
 
+
+      //Ball Tracking
+      if (ball_left) {
+          // 180° = fully left (MAX_V), 90°/270° = barely left (0)
+          ball_vx = -MAX_V * (1.0f - abs(180 - ballData.angle) / 90.0f);
+      }
+      else if (ball_right) {
+          // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
+          int angle = ballData.angle;
+          float dist = (angle <= 85) ? angle : (360 - angle); // distance from 0°/360°
+          ball_vx = MAX_V * (1.0f - dist / 90.0f);
+      }
+      else if(!ball_left && !ball_right){
+        ball_vx = 0;
+      }
+
       //Vy logic
+      /*Front Line Sensor Logic*/
       if(front_touch && !f_front_touch_state){
         f_front_touch_state = true;
         f_front_line_timer = millis();
       }
-
+      /*f_back Line Sensor Logic*/
       if(f_back_touch && !f_back_touch_state){
         f_back_touch_state = true;
         f_back_line_timer = millis();
@@ -192,17 +155,100 @@ void c_mode_main_function() {
         f_front_touch_state = false; 
       }
 
-      //Assign Velocity
-      float line_vx = 0; = ball_vx;
+      //Left white line
+      if(left_in_touch && !left_touch_state){
+        left_touch_state = true;
+        left_line_timer = millis();
       }
+      else if(left_touch_state && left_out_touch && !left_in_touch){
+        left_touch_state = false;
+        left_line_timer = 0;
+      }
+
+      //Right white line
+      if(right_in_touch && !right_touch_state){
+        right_touch_state = true;
+        right_line_timer = millis();
+      }
+      else if(right_touch_state && right_out_touch && !right_in_touch){
+        right_line_timer = 0;
+        right_touch_state = false;
+      }
+
+      
+      /*
+      //left and right corner edge case, prevent robot moving backwards
+      else if(f_back_line_timer){
+        f_back_line_timer = 0;
+        f_back_touch_state = false;
+        Serial.print("sec\n");
+      }*/
+      //the squence of 3 sensors touching the line are same in two sceneario:
+      /* front then left || right : hoizontal line
+         front then left || right : vertical line
+      */
+      //front edge case, half of the robot pass the front line and moving backwards
+      if(left_line_timer > f_back_line_timer && right_line_timer > f_back_line_timer){
+        right_touch_state = false;
+        right_line_timer = 0;
+        left_touch_state = false;
+        left_line_timer = 0;
+        Serial.print("fec\n");
+      }
+      /*
+      else if(left_line_timer < right_line_timer && left_line_timer < f_back_line_timer){// left side edge case      
+        right_touch_state = false;
+        right_line_timer = 0;
+        f_back_line_timer = 0;
+        f_back_touch_state = false;
+        Serial.print("lec\n");
+      }
+      else if(left_line_timer > right_line_timer && right_line_timer > f_back_line_timer){//side edge case
+        left_touch_state = false;
+        left_line_timer = 0;
+        f_back_line_timer = 0;
+        f_back_touch_state = false;
+        Serial.print("rec\n");
+      }*/
+      
+      /*Assign Velocity*/
+      float line_vx = 0;
+      //X axis
+      if(left_line_timer != 0 && right_line_timer == 0){//move left motion
+        line_vx = (20 + (millis() - left_line_timer) * 0.01);
+        if(line_vx > MAX_V) line_vx = MAX_V;
+      }
+      else if(right_line_timer != 0 && left_line_timer == 0){//move right motion
+        line_vx = -(20 + (millis() - right_line_timer) * 0.01);
+        if(line_vx < -MAX_V) line_vx = -MAX_V;
+      }
+
+      float vx = (line_vx == 0) ? ball_vx : line_vx;
+
+      if((ball_vx > 0 && right_out_touch) || (ball_vx < 0 && left_out_touch)){
+        vx = 0;
+      }
+      else if((ball_vx < 0 && right_out_touch) || (ball_vx > 0 && left_out_touch)){
+        vx = ball_vx;
+      }
+      /*(ball_vx > 0 && line_vx > 0) || (ball_vx < 0 && line_vx < 0) */
       
       // Y axis
-      
-      */
+      float vy = 0;
+      Serial.println(f_front_line_timer, f_back_line_timer);
+      if(f_front_line_timer && f_back_line_timer == 0){
+        vy = (5 + (millis() - f_front_line_timer) * 0.1);
+        if(vy > MAX_V) vy = MAX_V;
+      }
+      else if(f_front_line_timer == 0 && f_back_line_timer){
+        vy = -(5 + (millis() - f_back_line_timer) * 0.1);
+        if(vy < -MAX_V) vy = -MAX_V;
+      }
+
 
       //Serial.printf("Front LS: %d, Mid LS: %d, Back LS: %d\n",  int(front_touch), int(mid_touch), int(f_back_touch));
-      //Serial.printf("vx: %f, vy: %f\n", vx, vy);
-      
+      Serial.printf("vx: %f, vy: %f\n", vx, vy);
+      FC_Vector_Motion(0, vy, 90); 
     }
 }
 

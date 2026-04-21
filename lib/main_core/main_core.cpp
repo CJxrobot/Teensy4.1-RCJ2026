@@ -427,7 +427,7 @@ void send_cam_and_pos_data() {
     data[6] = (int8_t)(RobotPos.x);
     data[7] = (int8_t)(RobotPos.y);
     uint8_t checksum = 0;
-    for(uint8_t i = 1; i < 8; i++){
+    for(uint8_t i = 0; i < 8; i++){
         checksum += data[i];
     }
     data[8] = checksum % 256; // checksum
