@@ -38,11 +38,15 @@ void c_mode_main_function() {
 
 
       //Ball Tracking
-      if(ball_left){
-        ball_vx = -MAX_V;
+      if (ball_left) {
+          // 180° = fully left (MAX_V), 90°/270° = barely left (0)
+          ball_vx = -MAX_V * (1.0f - abs(180 - ballData.angle) / 90.0f);
       }
-      else if(ball_right){
-        ball_vx = MAX_V;
+      else if (ball_right) {
+          // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
+          int angle = ballData.angle;
+          float dist = (angle <= 85) ? angle : (360 - angle); // distance from 0°/360°
+          ball_vx = MAX_V * (1.0f - dist / 90.0f);
       }
       else if(!ball_left && !ball_right){
         ball_vx = 0;
