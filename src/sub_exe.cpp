@@ -121,26 +121,31 @@ void c_mode_main_function() {
       //use Ultrasonic Sensor for localization
       // if out of field, if Robot.y >-80 || Robot.x < -60 || Robot.x > 60
       // move back to the field
-      if(RobotPos.y > -80 || RobotPos.x < -60 || RobotPos.x > 60){
+      /*TODO*/
+      if(RobotPos.y > -80 || RobotPos.x < -45 || RobotPos.x > 45){
         /*Todo Move Home*/
-        //corner
         float home_vx = 0;
         float home_vy = 0;
-        if(RobotPos.y < -80 && (RobotPos.x < -60 || RobotPos.x > 60)){
-          home_vx = (RobotPos.x < -60) ? 30 : -30;
+        if(RobotPos.y < -80 && (RobotPos.x < -45 || RobotPos.x > 45)){
+          home_vx = (RobotPos.x < -45) ? 30 : -30;
         }
         else if(RobotPos.y > -80){
           home_vy = -30;
-          if(RobotPos.x < -60){
+          if(RobotPos.x < -45){
             home_vx = 30;
           }
-          else if(RobotPos.x > 60){
+          else if(RobotPos.x > 45){
             home_vx = -30;
           }
+        }
+        else if(RobotPos.y < -100){
+          home_vy = 30;
         }
         FC_Vector_Motion(home_vx, home_vy, 90);
       }
       else{
+      /*TODO*/
+      /* Defense */
         if(moveBackInBounds()){
           Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
           FC_Vector_Motion(lineVx, lineVy, 90);
@@ -200,6 +205,8 @@ void c_mode_main_function() {
           }
           FC_Vector_Motion(ball_vx, ball_vy, 90);
         }
+      /* Defense */
+
       }
       //Serial.printf("Front LS: %d, Mid LS: %d, Back LS: %d\n",  int(front_touch), int(mid_touch), int(f_back_touch));
       //Serial.printf("vx: %f, vy: %f\n", vx, vy);
