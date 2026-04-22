@@ -22,8 +22,13 @@ void sub_core_init() {
     pinMode(s1, OUTPUT);
     pinMode(s2, OUTPUT);
     pinMode(s3, OUTPUT);
-    pinMode(M1, INPUT_PULLDOWN);
-    pinMode(M2, INPUT_PULLDOWN);
+    //pinMode(M1, INPUT_PULLDOWN);
+    //pinMode(M2, INPUT_PULLDOWN);
+
+    pinMode(M1, INPUT);
+    pinMode(M2, INPUT);
+
+    
 
     // Motor Initialization
     // Motor 1
