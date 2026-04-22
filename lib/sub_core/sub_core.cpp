@@ -28,8 +28,6 @@ void sub_core_init() {
     pinMode(M1, INPUT);
     pinMode(M2, INPUT);
 
-    
-
     // Motor Initialization
     // Motor 1
     pinMode(pwmPin1, OUTPUT);
@@ -89,7 +87,7 @@ void update_line_sensor(){
   }
 }
 
-void fast_linesensor_update(){
+void fast_update_line_sensor(){
   static uint32_t prevRaw = 0xFFFFFFFF;
   uint32_t rawState       = 0xFFFFFFFF;
 
@@ -98,7 +96,7 @@ void fast_linesensor_update(){
     digitalWriteFast(s1, (ch >> 1) & 1);
     digitalWriteFast(s2, (ch >> 2) & 1);
     digitalWriteFast(s3, (ch >> 3) & 1);
-    delayMicroseconds(1);
+    delayMicroseconds(10);
 
     uint16_t r1 = analogRead(M1);
     uint16_t r2 = analogRead(M2);

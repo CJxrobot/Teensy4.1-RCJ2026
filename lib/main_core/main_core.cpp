@@ -242,8 +242,16 @@ void update_all_sensor(){
 
 void localizeRobot() {
     // X axis: ultrasonic default
-    RobotPos.x = usData.dist_l - usData.dist_r;
-
+    if(usData.dist_l < 50){
+        RobotPos.x = -(90 - usData.dist_l);
+    }
+    else if(usData.dist_r < 50){
+        RobotPos.x = 90 - usData.dist_r;
+    }
+    else{
+        RobotPos.x = usData.dist_l - usData.dist_r;
+    }
+     
     // Y axis: ultrasonic near-wall estimates
     if(usData.dist_f < 50){
         RobotPos.y = 120 - usData.dist_f;

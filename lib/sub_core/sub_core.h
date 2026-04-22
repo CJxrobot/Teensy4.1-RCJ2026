@@ -101,6 +101,7 @@ extern Position RobotPos;
 void sub_core_init();
 int  readMux(int ch, int sig);
 void update_line_sensor();
+void fast_update_line_sensor();
 void update_gyro_sensor();
 void line_calibrate();
 

@@ -97,11 +97,11 @@ void c_mode_main_function() {
     Serial.println("Cmode Started");
     while (1){
       read_cam_and_pos_data();
-      update_line_sensor(); // Keep updating sensors!
+      fast_update_line_sensor(); // Keep updating sensors!
       update_gyro_sensor();
       Serial.printf("Gyro Heading: %f\n", gyroData.heading);
       Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
-      Serial.printf("Robot Pos: (%f, %f)\n", RobotPos.x, RobotPos.y);
+      Serial.printf("Robot Pos: (%d, %d)\n", RobotPos.x, RobotPos.y);
        
       //use Ultrasonic Sensor for localization
       if(moveBackInBounds()){
@@ -109,6 +109,10 @@ void c_mode_main_function() {
         FC_Vector_Motion(lineVx, lineVy, 90);
       }
       else{
+        // if out of field, if Robot.y >-80 || Robot.x < -60 || Robot.x > 60
+        // move back to the field
+        
+        // else if in the field
         static unsigned long f_front_line_timer = 0;
         static unsigned long f_back_line_timer = 0;
         //Vy logic
@@ -161,6 +165,9 @@ void c_mode_main_function() {
           if(ball_vy < -MAX_V) ball_vy = -MAX_V;
         }
         FC_Vector_Motion(ball_vx, ball_vy, 90);
+
+
+
       }
 
 
