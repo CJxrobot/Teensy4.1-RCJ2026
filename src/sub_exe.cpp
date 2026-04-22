@@ -165,9 +165,6 @@ void c_mode_main_function() {
           if(ball_vy < -MAX_V) ball_vy = -MAX_V;
         }
         FC_Vector_Motion(ball_vx, ball_vy, 90);
-
-
-
       }
 
 
