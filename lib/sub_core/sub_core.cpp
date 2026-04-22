@@ -84,6 +84,28 @@ void update_line_sensor(){
   }
 }
 
+void fast_linesensor_update(){
+  static uint32_t prevRaw = 0xFFFFFFFF;
+  uint32_t rawState       = 0xFFFFFFFF;
+
+  for(uint8_t ch = 0; ch < 16; ch++){
+    digitalWriteFast(s0, (ch >> 0) & 1);
+    digitalWriteFast(s1, (ch >> 1) & 1);
+    digitalWriteFast(s2, (ch >> 2) & 1);
+    digitalWriteFast(s3, (ch >> 3) & 1);
+    delayMicroseconds(1);
+
+    uint16_t r1 = analogRead(M1);
+    uint16_t r2 = analogRead(M2);
+
+    if(r1 < avg_ls[ch])    rawState &= ~(1UL << ch);
+    if(r2 < avg_ls[ch+16]) rawState &= ~(1UL << (ch + 16));
+  }
+
+  lineData.state = prevRaw | rawState;
+  prevRaw        = rawState;
+}
+
 void update_gyro_sensor(){
   const int PACKET_SIZE = 19;
   uint8_t buffer[PACKET_SIZE];
