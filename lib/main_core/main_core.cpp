@@ -445,6 +445,51 @@ void send_cam_and_pos_data() {
     Serial8.write(data, sizeof(data));
 }
 
+
+void kicker_control(bool kick = false){
+  static uint64_t charge_start = 0;
+  static uint64_t last_charge_done = 0;
+  static bool charging_state = false;
+
+  const uint32_t CHARGE_DURATION = 5000;   // ms needed to charge
+  const uint32_t CHARGE_TIMEOUT  = 8000;  // ms before recharging automatically
+
+  uint64_t now = millis();
+
+  // Auto-recharge if too long since last charge
+  if(charging_state && (now - last_charge_done > CHARGE_TIMEOUT)){
+    charging_state = false;
+  }
+
+  // Start charging if not charged and not already charging
+  if(!charging_state && charge_start == 0){
+    charge_start = now;
+    //Serial.println("Charge");
+    digitalWrite(Charge_Pin, HIGH);
+    digitalWrite(Kicker_Pin, LOW);
+  }
+
+  // Stop charging when duration is met
+  if(charge_start != 0 && (now - charge_start >= CHARGE_DURATION)){
+    digitalWrite(Charge_Pin, LOW);
+    digitalWrite(Kicker_Pin, LOW);
+    //Serial.println("Charge End");
+    charging_state = true;
+    charge_start = 0;
+    last_charge_done = now;
+  }
+
+  // Perform kick if charged
+  if(kick && charging_state){
+    digitalWrite(Kicker_Pin, HIGH);
+    delay(10);
+    digitalWrite(Kicker_Pin, LOW);
+    //delay(10);
+    // After kick, reset to recharge again
+    Serial.println("kick");
+    charging_state = false;
+  }
+}
 bool turn_to(int heading){
     ;
     return true;    
