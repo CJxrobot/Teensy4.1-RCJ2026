@@ -145,7 +145,6 @@ void main_function() {
     //Serial.printf("Gyro Heading: %f\n", gyroData.heading);
     //Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
     Serial.printf("Robot Pos: (%d, %d)\n", RobotPos.x, RobotPos.y);
-      
     //use Ultrasonic Sensor for localization
     if(moveBackInBounds()){
       Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
@@ -177,7 +176,7 @@ void main_function() {
 
       //bool f_back_touch = !((lineData.state >> 8) & 1); // Example: using the first line sensor as f_back touch
       //static bool f_back_touch_state = false;
-      bool front_touch = /*analogRead(A6) < avg_ls[32] || */analogRead(A7) < avg_ls[33];
+      bool front_touch = analogRead(A7) < avg_ls[33];/*analogRead(A6) < avg_ls[32] || */
       static bool f_front_touch_state = false;
       bool mid_touch = !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1) || !((lineData.state >> 9 ) & 1);
       
@@ -233,7 +232,7 @@ void loop(){
     if (Serial8.available()) {
       uint8_t cmd = Serial8.read();
       //Serial.print(cmd);
-      if (cmd == LS_CAL_START) {
+      if(cmd == LS_CAL_START) {
           uint16_t max_ls[32], min_ls[32];
           uint16_t front_max = 0, front_min = 4095;
           uint16_t mid_max = 0, mid_min = 4095;
@@ -262,7 +261,6 @@ void loop(){
             if(reading > front_max) front_max = reading;
             if(reading < front_min) front_min = reading;
           }
-
           for (int i = 0; i < LS_count; i++) avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
           for (int i = 0; i < LS_count; i++) {
             Serial.printf("Sensor %d: min=%d, max=%d, avg=%d\n", i, min_ls[i], max_ls[i], avg_ls[i]);
@@ -271,7 +269,7 @@ void loop(){
           EEPROM.put(0, avg_ls);
           delay(1000); // Ensure EEPROM write completes
           Serial8.write(LS_CAL_ACK); // Send end calibration acknowledgment
-        } 
+      } 
       else if (cmd == MOVE_CMD) {// When BTN_UP is pressed, send a move command to the main core
         Serial8.write(PROTOCAL_ACT);
         break;
