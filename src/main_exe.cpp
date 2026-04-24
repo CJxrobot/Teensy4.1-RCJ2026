@@ -9,14 +9,11 @@ void t_mode_main_function();
 void t_mode_main_function() {
     Serial.println("Tmode Started");
     move_to_position(0, 100); // Move to (100, 100)
-    
-    
     //Missioin Complete, stop the robot
     while(1) {
         sendMotor(0, 0, 0, subCoreData.gyroHeading); // Stop the robot
     }
 }
-
 
 void c_mode_main_function() {
     Serial.println("Cmode Started");
@@ -30,7 +27,6 @@ void c_mode_main_function() {
         }
     }
 }
-
 
 void setup() {
     main_core_init();
