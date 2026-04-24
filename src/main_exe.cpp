@@ -15,7 +15,6 @@ void t_mode_main_function() {
     }
 }
 
-
 void c_mode_main_function() {
     Serial.println("Cmode Started");
     while(1) {  
@@ -28,7 +27,6 @@ void c_mode_main_function() {
         }
     }
 }
-
 
 void setup() {
     main_core_init();
