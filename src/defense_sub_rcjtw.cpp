@@ -19,7 +19,10 @@ float lineVy = 0;
 #define SPD   35
 #define SPD7  20  // SPD * 0.707
 
+#define LOCK_ANGLE 45
+
 #include <math.h>
+
 
 /**
  * 使用向量求和計算法
@@ -72,122 +75,121 @@ float get_angle_diff(float a, float b) {
 }
 
 void defense_mode() {
-    //read_cam_and_pos_data();
     readMainPacket();
     update_line_sensor(); // Keep updating sensors!
     update_gyro_sensor();
-    // 預設變數
-
-    //球門限制
-    //右側 220
-    //左側 100
+    float back_vx = 0;
+    float back_vy = 0;
+    //看到球門，但超聲距離太遠或太近，要前進
+    if(goalData.valid && usData.dist_b > 40 || usData.dist_b < 30){    
+        //球門限制
+        //右側 220
+        //左側 100
+        back_vx = 0;
+        if(goalData.x > 200){
+            back_vx = -30;
+        }
+        else if(goalData.x < 120){
+            back_vx = 30;
+        }
+        back_vy = (35 - usData.dist_b) * 3;
+        if(back_vy > 40) back_vy = 20;
+        if(back_vy < -40) back_vy = -20;
+        if(back_vy < 15 && back_vy > 0) back_vy = 15;
+        if(back_vy > -15 && back_vy < 0) back_vy = -15;
+    }
+    if(!goalData.valid){//在角落 看不到相機，移動到50CM 處 看到相機
+        back_vx = 0;
+        back_vy = (50 - usData.dist_b) * 3;
+        //最大速度和最小速度調整
+        if(back_vy > 25) back_vy = 25;
+        if(back_vy < -25) back_vy = -25;
+        if(back_vy < 15 && back_vy > 0) back_vy = 15;
+        if(back_vy > -15 && back_vy < 0) back_vy = -15;
+    }
+    Serial.printf("back_us %d back_vx %f, back_vy %f\n", usData.dist_b, back_vx, back_vy);
+    if(back_vy || back_vx){
+        Serial.printf("OUT\n");
+        FC_Vector_Motion(back_vx, back_vy, 90);
+    }
     float move_deg = -1;
     bool side = false;
-    // 簡單邏輯：球在左邊中心 16，右邊中心 0
-    if(ballData.valid && (ballData.angle > 270 || ballData.angle < 80)){
-        move_deg = get_line_move_angle(lineData.state, 0, 7);
-        if(move_deg < 315 && move_deg > 270){
-            side = true;
+    int count = 0;
+    //計算有幾顆碰到線，避免誤觸
+    for(int i = 0; i < LS_count; i++){
+        if(bitRead(lineData.state, i) == 0){
+            count++;
         }
     }
-    else if(ballData.valid && (ballData.angle > 100 && ballData.angle < 270)){
-        move_deg = get_line_move_angle(lineData.state, 16, 7);
-        if(move_deg > 225 && move_deg < 270){
-            side = true;
-        }
-    }
-    else{
-        move_deg = -1;
-        float left_lock_angle = get_line_move_angle(lineData.state, 16, 7);
-        float right_lock_angle = get_line_move_angle(lineData.state, 0, 7);
-
-        // 只有當至少有一個角度有效時才計算合向量
-        if (left_lock_angle != -1 || right_lock_angle != -1) {
-            float vx = 0, vy = 0;
-
-            // 處理左側向量
-            if (left_lock_angle != -1) {
-                float rad = left_lock_angle * (M_PI / 180.0f);
-                vx += cosf(rad);
-                vy += sinf(rad);
-            }
-
-            // 處理右側向量
-            if (right_lock_angle != -1) {
-                float rad = right_lock_angle * (M_PI / 180.0f);
-                vx += cosf(rad);
-                vy += sinf(rad);
-            }
-
-            // 兩者的和向量轉回角度
-            float res_rad = atan2f(vy, vx);
-            move_deg = res_rad * (180.0f / M_PI);
-            if (move_deg < 0) move_deg += 360.0f;
-            // --- 你的邏輯套用 ---
-            if (left_lock_angle != -1 && right_lock_angle != -1) {
-                float angle_dist = get_angle_diff(left_lock_angle, right_lock_angle);
-                
-                // 如果兩側感應到的線夾角大於 120 度 (各自偏離中心 60 度)
-                if (angle_dist > 120.0f) { 
-                    move_deg = -1; // 衝突太大，視為無效指令
-                }
+    if(count > 3 /*&&goalData.valid*/){//可以添加goalData.valid來確認是禁區的線
+        if(ballData.valid && (ballData.angle > 270 || ballData.angle < 80)){
+            move_deg = get_line_move_angle(lineData.state, 0, 7);
+            //球在右邊以右半邊光感，以0號為中心循線
+            //如果右側看到315代表在弧線區 要停止
+            if(move_deg < 315 && move_deg > 270){
+                side = true;
             }
         }
-        if(get_angle_diff(left_lock_angle, 180) > 60 || get_angle_diff(right_lock_angle, 0) > 60){
-            side = true;
-        }
-    } 
-        // 調用函數：掃描中心點左右各 7 顆感測器 (共 15 顆)
-    Serial.printf("Deg %f\n", move_deg);
-    float vx = 0;
-    float vy = 0;
-    if(move_deg != -1){
-        float temp = move_deg * DtoR_const;
-        vx = 30 * cos(temp);
-        vy = 30 * sin(temp);
-    }
-    if(side && vy < 0){
-        vy = 0;
-    }
-    FC_Vector_Motion(vx, vy, 90);
-}
-
-void main_function() {
-  Serial.println("Cmode Started");
-  while (1){
-    //read_cam_and_pos_data();
-    readMainPacket();
-    update_line_sensor(); // Keep updating sensors!
-    update_gyro_sensor();
-    //Serial.printf("Gyro Heading: %f\n", gyroData.heading);
-    //Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
-    Serial.printf("Robot Pos: (%d, %d)\n", RobotPos.x, RobotPos.y);
-    Serial.printf("Goal Valid: %d, Goal X: %d, Goal W: %d , Y: %d\n, B: %d\n", goalData.valid, goalData.x, goalData.w, RobotPos.y, usData.dist_b);
-    bool move_dir = 0;
-    if(ballData.valid){
-        if(ballData.angle > 100 && ballData.angle < 270){
-            move_dir = -1;
-        }
-        else if(ballData.angle <80 && ballData.angle > 270){
-            move_dir = 1;
+        else if(ballData.valid && (ballData.angle > 100 && ballData.angle < 270)){
+            move_deg = get_line_move_angle(lineData.state, 16, 7);
+            //球在左邊以左半邊光感，以16號為中心循線
+            //如果左側看到225代表在弧線區 要停止(SIDE == TURE) 會鎖住VY<0
+            if(move_deg > 225 && move_deg < 270){
+                side = true;
+            }
         }
         else{
-            move_dir = 0;
-        }
-    }
-    if(lineData.state != 0xFFFF){
-        if(move_dir == 1){
-            ;
-        }
-        else if(move_dir == -1){
-            ;
-        }
-    }
-    else{
-        //move back to field
-    }
+            move_deg = -1;
+            float left_lock_angle = get_line_move_angle(lineData.state, 16, 7);
+            float right_lock_angle = get_line_move_angle(lineData.state, 0, 7);
 
-  }
+            // 只有當至少有一個角度有效時才計算合向量
+            if (left_lock_angle != -1 || right_lock_angle != -1) {
+                float vx = 0, vy = 0;
+
+                // 處理左側向量
+                if (left_lock_angle != -1) {
+                    float rad = left_lock_angle * (M_PI / 180.0f);
+                    vx += cosf(rad);
+                    vy += sinf(rad);
+                }
+
+                // 處理右側向量
+                if (right_lock_angle != -1) {
+                    float rad = right_lock_angle * (M_PI / 180.0f);
+                    vx += cosf(rad);
+                    vy += sinf(rad);
+                }
+
+                // 兩者的和向量轉回角度
+                float res_rad = atan2f(vy, vx);
+                move_deg = res_rad * (180.0f / M_PI);
+                if (left_lock_angle != -1 && right_lock_angle != -1) {
+                    float angle_dist = get_angle_diff(left_lock_angle, right_lock_angle);
+                    
+                    // 如果兩側感應到的線夾角大於 120 度 代表在線上 不要動 可以調整 角度越大越靈敏(應該)(各自偏離中心 60 度)
+                    if (angle_dist > 120.0f) { 
+                        move_deg = -1; // 衝突太大，視為無效指令
+                    }
+                }
+            }
+            if(get_angle_diff(left_lock_angle, 180) > LOCK_ANGLE || get_angle_diff(right_lock_angle, 0) > LOCK_ANGLE){
+                side = true;
+            }
+        }
+        Serial.printf("Deg %f\n", move_deg);
+        float vx = 0;
+        float vy = 0;
+        if(move_deg != -1){
+            float temp = move_deg * DtoR_const;
+            vx = 30 * cos(temp);//防守循線vx速度
+            vy = 30 * sin(temp);//防守循線vy速度
+        }
+        if(side && vy < 0){//鎖住VY < 0
+            vy = 0;
+        }
+        FC_Vector_Motion(vx, vy, 90);
+    }
 }
 
 void setup(){
