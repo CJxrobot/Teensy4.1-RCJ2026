@@ -41,12 +41,7 @@ bool moveBackInBounds(){
   bool linedetected = false;
   static float init_lineDegree = -1;
   static float diff = 0;
-  static bool emergency = false;
-  static bool start = false;
-  static bool overhalf = false;
   static bool first_detect = false;
-  static uint32_t speed_timer = 0;
-  bool online = false;
   for(int i = 0; i < LS_count; i++){
     if(i==7 ||i==8 ||i==9 || i==10 || i==6){ // ignore middle 5 sensors
       if(bitRead(lineData.state, i) == 0){
