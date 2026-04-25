@@ -314,9 +314,9 @@ void readMainPacket() {
             ballData.valid = buffer[6] == 0xFF;
             goalData.x     = (int16_t)((buffer[8] << 8) | buffer[7]);
             goalData.valid = buffer[9] == 0xFF;
-            //s_us_f       = (int16_t)((buffer[11] << 8) | buffer[10]);
-            //s_us_b       = (int16_t)((buffer[13] << 8) | buffer[12]);
-            //s_us_l       = (int16_t)((buffer[15] << 8) | buffer[14]);
+            // usData.dist_ｆ       = (int16_t)((buffer[11] << 8) | buffer[10]);
+            // usData.dist_ｌ       = (int16_t)((buffer[15] << 8) | buffer[14])
+            // usData.dist_ｒ       = (int16_t)((buffer[16] << 8) | buffer[17]);
             usData.dist_b     = (int16_t)((buffer[13] << 8) | buffer[12]);
         }
     }

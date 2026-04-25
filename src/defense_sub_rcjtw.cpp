@@ -64,13 +64,13 @@ float get_angle_diff(float a, float b) {
 }
 
 void defense_mode() {
-    readMainPacket();
+    readMainPacket(); //要讀取超聲波　還有相機的參數
     update_line_sensor(); // Keep updating sensors!
     update_gyro_sensor();
     float back_vx = 0;
     float back_vy = 0;
     //看到球門，但超聲距離太遠或太近，要前進
-    if(goalData.valid && usData.dist_b > 40 || usData.dist_b < 30){    
+    if(goalData.valid && (usData.dist_b > 40 || usData.dist_b < 30)){    
         //球門限制
         //右側 220
         //左側 100
