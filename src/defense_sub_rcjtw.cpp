@@ -128,6 +128,7 @@ void defense_mode() {
             }
         }
         else{
+            //如果不移動，需要透過計算左半邊的線角度和右半邊線角度，來鎖死在線上
             move_deg = -1;
             float left_lock_angle = get_line_move_angle(lineData.state, 16, 7);
             float right_lock_angle = get_line_move_angle(lineData.state, 0, 7);
