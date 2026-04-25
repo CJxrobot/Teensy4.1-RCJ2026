@@ -15,46 +15,60 @@ float lineVy = 0;
 #define LS_ZONE_RD  0x78000000UL  // sensor 27,28,29,30   (中心315°)
 
 #define ZONE_HIT(mask) ((~lineData.state & (mask)) != 0)
-
+#define DtoR_const 0.0174529f
 #define SPD   35
 #define SPD7  20  // SPD * 0.707
 
+#include <math.h>
 
 /**
- * @param line_state  32-bit 數據 (0代表壓線, 1代表無線)
- * @param center      目前動態中心點 (0-31)
- * @param range       掃描半徑 (例如 7 代表掃描中心點左右各 7 顆)
- * @return float      輸出的絕對移動角度 (若沒壓線則返回 -1.0)
+ * 使用向量求和計算法
+ * @param line_state  32-bit 數據 (0代表壓線)
+ * @param center      中心點 (0-31)
+ * @param range       掃描半徑
+ * @return float      絕對角度 (0~360)，沒壓線返回 -1.0
  */
 float get_line_move_angle(uint32_t line_state, uint8_t center, int range) {
-    float sum_angle = 0;
+    float x_sum = 0.0f;
+    float y_sum = 0.0f;
     int count = 0;
-    const float unit = 11.25f;
+    const float deg2rad = M_PI / 180.0f; // 角度轉弧度常數
 
-    // 從 -range 掃描到 +range
     for (int i = -range; i <= range; i++) {
-        
-        // 核心：算出環狀索引 (處理 0 和 31 的銜接)
         uint8_t idx = (center + i + 32) % 32;
 
-        // 檢查該位元是否為 0 (代表壓線)
-        if (!(line_state & (1UL << idx))) {
-            
-            // 計算該感測器的絕對角度
-            // 這裡直接計算：(索引編號 * 11.25)
-            float abs_angle = idx * unit;
-            
-            sum_angle += abs_angle;
+        // 檢查該位元是否為 0 (壓線)
+        if (!((line_state >> idx) & 1)) {
+            // 計算該感測器的絕對物理角度
+            float angle_deg = idx * 11.25f;
+            float angle_rad = angle_deg * deg2rad;
+
+            // 向量累加
+            x_sum += cosf(angle_rad);
+            y_sum += sinf(angle_rad);
             count++;
         }
     }
 
-    // 如果範圍內有燈亮，計算平均角度
     if (count > 0) {
-        return sum_angle / count;
+        // 使用 atan2 算出弧度，並轉回角度
+        float result_rad = atan2f(y_sum, x_sum);
+        float result_deg = result_rad * (180.0f / M_PI);
+
+        // 將結果標準化到 0~360 度
+        if (result_deg < 0) result_deg += 360.0f;
+        
+        return result_deg;
     }
 
-    return -1.0f; // 範圍內沒有壓線
+    return -1.0f;
+}
+
+// 計算兩個角度之間的最短夾角
+float get_angle_diff(float a, float b) {
+    float diff = fabs(a - b);
+    if (diff > 180) diff = 360 - diff;
+    return diff;
 }
 
 void defense_mode() {
@@ -63,19 +77,78 @@ void defense_mode() {
     update_line_sensor(); // Keep updating sensors!
     update_gyro_sensor();
     // 預設變數
+
+    //球門限制
+    //右側 220
+    //左側 100
     float move_deg = -1;
-    uint8_t my_center = 0; 
-
-    if (ballData.valid) {
-        // 簡單邏輯：球在左邊中心 16，右邊中心 0
-        my_center = (ballData.angle > 180) ? 16 : 0;
-
-        // 調用函數：掃描中心點左右各 7 顆感測器 (共 15 顆)
-        move_deg = get_line_move_angle(lineData.state, my_center, 7);
+    bool side = false;
+    // 簡單邏輯：球在左邊中心 16，右邊中心 0
+    if(ballData.valid && (ballData.angle > 270 || ballData.angle < 80)){
+        move_deg = get_line_move_angle(lineData.state, 0, 7);
+        if(move_deg < 315 && move_deg > 270){
+            side = true;
+        }
     }
+    else if(ballData.valid && (ballData.angle > 100 && ballData.angle < 270)){
+        move_deg = get_line_move_angle(lineData.state, 16, 7);
+        if(move_deg > 225 && move_deg < 270){
+            side = true;
+        }
+    }
+    else{
+        move_deg = -1;
+        float left_lock_angle = get_line_move_angle(lineData.state, 16, 7);
+        float right_lock_angle = get_line_move_angle(lineData.state, 0, 7);
+
+        // 只有當至少有一個角度有效時才計算合向量
+        if (left_lock_angle != -1 || right_lock_angle != -1) {
+            float vx = 0, vy = 0;
+
+            // 處理左側向量
+            if (left_lock_angle != -1) {
+                float rad = left_lock_angle * (M_PI / 180.0f);
+                vx += cosf(rad);
+                vy += sinf(rad);
+            }
+
+            // 處理右側向量
+            if (right_lock_angle != -1) {
+                float rad = right_lock_angle * (M_PI / 180.0f);
+                vx += cosf(rad);
+                vy += sinf(rad);
+            }
+
+            // 兩者的和向量轉回角度
+            float res_rad = atan2f(vy, vx);
+            move_deg = res_rad * (180.0f / M_PI);
+            if (move_deg < 0) move_deg += 360.0f;
+            // --- 你的邏輯套用 ---
+            if (left_lock_angle != -1 && right_lock_angle != -1) {
+                float angle_dist = get_angle_diff(left_lock_angle, right_lock_angle);
+                
+                // 如果兩側感應到的線夾角大於 120 度 (各自偏離中心 60 度)
+                if (angle_dist > 120.0f) { 
+                    move_deg = -1; // 衝突太大，視為無效指令
+                }
+            }
+        }
+        if(get_angle_diff(left_lock_angle, 180) > 60 || get_angle_diff(right_lock_angle, 0) > 60){
+            side = true;
+        }
+    } 
+        // 調用函數：掃描中心點左右各 7 顆感測器 (共 15 顆)
+    Serial.printf("Deg %f\n", move_deg);
     float vx = 0;
     float vy = 0;
-
+    if(move_deg != -1){
+        float temp = move_deg * DtoR_const;
+        vx = 30 * cos(temp);
+        vy = 30 * sin(temp);
+    }
+    if(side && vy < 0){
+        vy = 0;
+    }
     FC_Vector_Motion(vx, vy, 90);
 }
 
