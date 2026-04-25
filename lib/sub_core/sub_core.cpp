@@ -98,6 +98,7 @@ void fast_update_line_sensor(){
     digitalWriteFast(s1, (ch >> 1) & 1);
     digitalWriteFast(s2, (ch >> 2) & 1);
     digitalWriteFast(s3, (ch >> 3) & 1);
+    /*might be allowed to removed*/
     delayMicroseconds(10);
 
     uint16_t r1 = analogRead(M1);
