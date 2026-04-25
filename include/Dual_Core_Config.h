@@ -25,6 +25,5 @@
 
 
 // --- Configuration Constants ---
-#define MAX_V 30
-
+#define MAX_V 60.0
 #endif

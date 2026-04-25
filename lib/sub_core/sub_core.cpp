@@ -192,7 +192,7 @@ void RobotIKControl(float vx, float vy, float omega) {
     SetMotorSpeed(1, p1);
     SetMotorSpeed(2, p2);
     SetMotorSpeed(3, p3);
-    SetMotorSpeed(4, p4);
+    SetMotorSpeed(4, p4*0.7);
 }
 
 void Vector_Motion(float Vx, float Vy, float rot_V) {  

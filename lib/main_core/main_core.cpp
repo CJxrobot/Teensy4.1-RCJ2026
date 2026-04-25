@@ -241,6 +241,14 @@ void update_all_sensor(){
     readussensor();
 }
 
+void defense_localizeRobot() {
+    // To do: localize using ultrasonic sensors and camera data
+    if(usData.dist_b < 50){
+        RobotPos.y = -(120 - usData.dist_b);
+    }
+    RobotPos.x = (camData.goal_x - 160) * 0.75;
+}
+
 void localizeRobot() {
     // X axis: ultrasonic default
     if(usData.dist_l < 50){
@@ -269,8 +277,7 @@ void localizeRobot() {
         if(goal_height > Y_LOCALIZE_THRESHOLD_L && goal_height < Y_LOCALIZE_THRESHOLD_H){
             RobotPos.y = GOAL_LOCALIZATION_C1 / goal_height;
         }
-
-    }        
+    }
     /*
         if(goal_height > X_LOCALIZE_THRESHOLD_L && goal_height < X_LOCALIZE_THRESHOLD_H){
             RobotPos.x = goal_x - 160;

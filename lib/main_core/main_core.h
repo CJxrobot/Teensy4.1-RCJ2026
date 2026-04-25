@@ -23,7 +23,7 @@
 #define left_us A14
 #define back_us A16
 #define right_us A17
-#define alpha 0.75  
+#define alpha 0.15
 
 // --- Goal Localization Thresholds ---
 #define Y_LOCALIZE_THRESHOLD_L 20
@@ -95,4 +95,5 @@ void localizeRobot();
 bool move_to_position(int pos_x, int pos_y);
 void send_cam_and_pos_data();
 void update_all_sensor();
+void defense_localizeRobot();
 #endif

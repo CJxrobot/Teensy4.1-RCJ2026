@@ -17,11 +17,6 @@
 // right:  bits 12-20
 // back:   bits 21-27
 // left:   bits 28-31 + 0-4
-// ------------------------------------------------------------
-#define LS_MASK_FRONT  0x00000FE0UL
-#define LS_MASK_RIGHT  0x001FF000UL
-#define LS_MASK_BACK   0x0FE00000UL
-#define LS_MASK_LEFT   0xF000001FUL
 
 
 // ------------------------------------------------------------

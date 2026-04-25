@@ -4,6 +4,17 @@ uint8_t op_mode;
 float lineVx = 0;
 float lineVy = 0;
 
+// ------------------------------------------------------------
+#define LS_MASK_FRONT  0x00000FE0UL
+#define LS_MASK_RIGHT  0x001FF000UL
+#define LS_MASK_BACK   0x0FE00000UL
+#define LS_MASK_LEFT   0xF000001FUL
+
+// --- MATH CONSTANTS & CONTROL PARAMETERS ---
+#define DtoR_const 0.0174529f
+#define RtoD_const 57.2958f
+
+
 const float linesensor_cos[32] = {
     1.0000f,  0.9808f,  0.9239f,  0.8315f,  0.7071f,  0.5556f,  0.3827f,  0.1951f,
     0.0000f, -0.1951f, -0.3827f, -0.5556f, -0.7071f, -0.8315f, -0.9239f, -0.9808f,
@@ -37,7 +48,7 @@ bool moveBackInBounds(){
   static uint32_t speed_timer = 0;
   bool online = false;
   for(int i = 0; i < LS_count; i++){
-    if(i==7 ||i==8 ||i==9){
+    if(i==7 ||i==8 ||i==9 || i==10 || i==6){ // ignore middle 5 sensors
       if(bitRead(lineData.state, i) == 0){
         online = true;
       }
@@ -115,12 +126,12 @@ bool moveBackInBounds(){
     bool front_in = analogRead(A6) < avg_ls[32];
 
     if(right && !left){
-      if(!front_in && !online){
+      if(!front_in){
         lineVy = 20;
       }
     }
     if(!right && left){
-      if(!front_in && !online){
+      if(!front_in){
         lineVy = 20;
       }
     }
@@ -158,13 +169,12 @@ void main_function() {
       bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
       if (ball_left) {
           // 180° = fully left (MAX_V), 90°/270° = barely left (0)
-          ball_vx = -MAX_V * (1.0f - abs(180 - ballData.angle) / 90.0f);
+          ball_vx = -70;
       }
       else if (ball_right) {
           // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
           int angle = ballData.angle;
-          float dist = (angle <= 85) ? angle : (360 - angle); // distance from 0°/360°
-          ball_vx = MAX_V * (1.0f - dist / 90.0f);
+          ball_vx = 70;
       }
       else if(!ball_left && !ball_right){
         ball_vx = 0;
@@ -178,7 +188,7 @@ void main_function() {
       //static bool f_back_touch_state = false;
       bool front_touch = analogRead(A7) < avg_ls[33];/*analogRead(A6) < avg_ls[32] || */
       static bool f_front_touch_state = false;
-      bool mid_touch = !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1) || !((lineData.state >> 9 ) & 1);
+      bool mid_touch = !((lineData.state >> 6) & 1) || !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1) || !((lineData.state >> 9 ) & 1) || !((lineData.state >> 10) & 1);
       
       if(front_touch && !f_front_touch_state){
         f_front_touch_state = true;
@@ -193,7 +203,7 @@ void main_function() {
       Serial.println(f_front_line_timer, f_back_line_timer);
       if(f_front_line_timer != 0){
         ball_vy = (5 + (millis() - f_front_line_timer) * 0.1);
-        if(ball_vy > 30) ball_vy = 30;
+        if(ball_vy > 20) ball_vy = 20;
       }
       /*
       if (RobotPos.y<-100){
