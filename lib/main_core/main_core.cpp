@@ -29,7 +29,7 @@ void main_core_init() {
     Serial2.begin(115200); 
     Serial3.begin(115200);
     Serial4.begin(115200); 
-    Serial5.begin(115200);
+    Serial5.begin(921600);
     Serial6.begin(115200); 
     Serial7.begin(115200);
     Serial8.begin(921600);
@@ -129,8 +129,8 @@ void readBallCam() {
               ballData.angle = (uint16_t)buffer[1] | ((uint16_t)buffer[2] << 8);
               ballData.dist  = (uint16_t)buffer[3] | ((uint16_t)buffer[4] << 8);
             
-               if(ballData.angle != 65535 && ballData.dist != 65535){
-                 ballData.valid = true;
+                if(ballData.angle != 65535 && ballData.dist != 65535){
+                ballData.valid = true;
                }
                else{
                 ballData.valid = false;
@@ -144,49 +144,35 @@ void readBallCam() {
     }
 }
 
-void readFrontCam() {
-    static uint8_t buffer[20];
-    static uint8_t index = 0;
-    while (Serial5.available()){
-        uint8_t b = Serial5.read();
-        if(index == 0 && b != 0xCC){
-            continue;  // 等待開頭 0xCC
-        }
-        buffer[index++] = b;
-        if (index == 18) {
-            // 3. 檢查頭尾是否正確
-            if (buffer[0] == 0xCC && buffer[17] == 0xEE) {
-            
-            // --- 解析球 (Ball) ---
-            // 把兩個 byte 拼回 16-bit 整數
-            int b_x = buffer[1] | (buffer[2] << 8);
-            int b_y = buffer[3] | (buffer[4] << 8);
-            int b_w = buffer[5] | (buffer[6] << 8);
-            int b_h = buffer[7] | (buffer[8] << 8);
 
-            // --- 解析球門 (Goal) ---
-            int g_x = buffer[9] | (buffer[10] << 8);
-            int g_y = buffer[11] | (buffer[12] << 8);
-            int g_w = buffer[13] | (buffer[14] << 8);
-            int g_h = buffer[15] | (buffer[16] << 8);
-
-            // 4. 將解析後的資料存入你的 rightData 結構
-            // 判斷是否有效：如果在 K210 端沒看到球會傳 65535 (0xFFFF)
-            camData.ball_x = b_x;
-            camData.ball_y = b_y;
-            camData.ball_w = b_w;
-            camData.ball_h = b_h;
-            camData.ball_valid = (b_x != 65535);
-
-            camData.goal_x = g_x;
-            camData.goal_y = g_y;
-            camData.goal_w = g_w;
-            camData.goal_h = g_h;
-            camData.goal_valid = (g_x != 65535);
-            }
-            index = 0;  // reset buffer
-        }
+void readcamera(){
+  static uint8_t buffer[20]; // 稍微開大一點點
+  static uint8_t index = 0;
+  while (Serial5.available()){
+    uint8_t b = Serial5.read();
+    
+    if(index == 0 && b != 0xCC){
+      continue;  // 等待開頭 0xCC
     }
+    buffer[index++] = b;
+    if (index == 18) {
+      // 3. 檢查頭尾是否正確
+      if (buffer[0] == 0xCC && buffer[17] == 0xEE) {
+        // --- 解析球門 (Goal) ---
+        int g_x = buffer[9] | (buffer[10] << 8);
+        int g_y = buffer[11] | (buffer[12] << 8);
+        int g_w = buffer[13] | (buffer[14] << 8);
+        int g_h = buffer[15] | (buffer[16] << 8);
+
+        camData.goal_x = g_x;
+        camData.goal_y = g_y;
+        camData.goal_w = g_w;
+        camData.goal_h = g_h;
+        camData.goal_valid = (g_x != 65535);
+      }
+      index = 0;  // reset buffer
+    }
+  }
 }
 
 void readussensor() {
@@ -237,7 +223,7 @@ void readussensor() {
 
 void update_all_sensor(){
     readBallCam();
-    readFrontCam();
+    readcamera();
     readussensor();
 }
 
@@ -367,7 +353,6 @@ void sendMotorAndGetSensors(float vx, float vy, float rot_v, int target_heading)
 bool UI_Interface(){
     readussensor();
     readBallCam();
-    readFrontCam();
     static uint32_t lastDisplayTime = 0;
     switch (currentState) {
         case STATE_READY:
@@ -453,27 +438,41 @@ void send_cam_and_pos_data() {
     Serial8.write(data, sizeof(data));
 }
 
-bool turn_to(int heading){
-    ;
-    return true;    
-}
+void sendPacket() {
+    int16_t ball_angle = (int16_t)ballData.angle;
+    int16_t ball_dist  = (int16_t)ballData.dist;
+    uint8_t ball_valid = ballData.valid ? 0xFF : 0x00;
+    int16_t goal_x     = (int16_t)camData.goal_x;
+    uint8_t goal_valid = camData.goal_valid ? 0xFF : 0x00;
+    int16_t us_f       = (int16_t)usData.dist_f;
+    int16_t us_b       = (int16_t)usData.dist_b;
+    int16_t us_l       = (int16_t)usData.dist_l;
+    int16_t us_r       = (int16_t)usData.dist_r;
 
-bool move_in_second(int vx, int vy, int s){
-    ;
-    return true;
-}
+    uint8_t packet[21];
+    packet[0]  = 0xAA;
+    packet[1]  = 0xAA;
+    packet[2]  = ball_angle & 0xFF;
+    packet[3]  = (ball_angle >> 8) & 0xFF;
+    packet[4]  = ball_dist  & 0xFF;
+    packet[5]  = (ball_dist  >> 8) & 0xFF;
+    packet[6]  = ball_valid;
+    packet[7]  = goal_x & 0xFF;
+    packet[8]  = (goal_x >> 8) & 0xFF;
+    packet[9]  = goal_valid;
+    packet[10] = us_f & 0xFF;
+    packet[11] = (us_f >> 8) & 0xFF;
+    packet[12] = us_b & 0xFF;
+    packet[13] = (us_b >> 8) & 0xFF;
+    packet[14] = us_l & 0xFF;
+    packet[15] = (us_l >> 8) & 0xFF;
+    packet[16] = us_r & 0xFF;
+    packet[17] = (us_r >> 8) & 0xFF;
 
-bool turn_in_second(int vx, int vy, int s){
-    ;
-    return true;
-}
+    uint8_t sum = 0;
+    for (int i = 2; i <= 17; i++) sum += packet[i];
+    packet[18] = sum;
+    packet[19] = 0xEE;
 
-bool move_until(){
-    ;
-    return true;
-}
-
-bool turn_until(){
-    ;
-    return true;
+    Serial8.write(packet, 20);
 }

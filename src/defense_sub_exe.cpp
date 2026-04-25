@@ -42,8 +42,10 @@ bool moveBackInBounds(){
   static float init_lineDegree = -1;
   static float diff = 0;
   static bool first_detect = false;
+  static bool overhalf = false;
+  bool online = false;
   for(int i = 0; i < LS_count; i++){
-    if(i==7 ||i==8 ||i==9 || i==10 || i==6){ // ignore middle 5 sensors
+    if(i==7 ||i==8 ||i==9 || i==10 || i==6 || i == 11 || i == 5){ // ignore middle 5 sensors
       if(bitRead(lineData.state, i) == 0){
         online = true;
       }
@@ -70,7 +72,6 @@ bool moveBackInBounds(){
     if (!first_detect){
       init_lineDegree = lineDegree;
       first_detect = true;
-      speed_timer = millis();
       
       Serial.println("LINE DETECTED !!!");
       Serial.print("initlineDegree =");Serial.println(init_lineDegree);
@@ -89,7 +90,6 @@ bool moveBackInBounds(){
       finalDegree = fmod(init_lineDegree + 180.0f, 360.0f);
     }
     else{
-      overhalf = false;
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
     prev_final_degree = finalDegree;
@@ -137,7 +137,6 @@ bool moveBackInBounds(){
     first_detect = false;
     lineVx = 0;
     lineVy = 0;
-    speed_timer = 0;
     return false;
   }
 }
@@ -145,13 +144,33 @@ bool moveBackInBounds(){
 void main_function() {
   Serial.println("Cmode Started");
   while (1){
-    read_cam_and_pos_data();
+    //read_cam_and_pos_data();
+    readMainPacket();
     update_line_sensor(); // Keep updating sensors!
     update_gyro_sensor();
     //Serial.printf("Gyro Heading: %f\n", gyroData.heading);
     //Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
     Serial.printf("Robot Pos: (%d, %d)\n", RobotPos.x, RobotPos.y);
+    Serial.printf("Goal Valid: %d, Goal X: %d, Goal W: %d , Y: %d\n", goalData.valid, goalData.x, goalData.w, RobotPos.y);
     //use Ultrasonic Sensor for localization
+    /*
+    if(goalData.valid){
+      if(goalData.x < 70){
+        RobotPos.x = -goalData.dist;
+      }
+      else if(goalData.x > 90){
+        RobotPos.x = goalData.dist;
+      }
+      else{
+        RobotPos.x = 0;
+      }
+    }
+    
+    
+    
+    
+    
+    */
     if(moveBackInBounds()){
       Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
       FC_Vector_Motion(lineVx, lineVy, 90);
@@ -164,43 +183,36 @@ void main_function() {
       bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
       if (ball_left) {
           // 180° = fully left (MAX_V), 90°/270° = barely left (0)
-          ball_vx = -70;
+          ball_vx = -40;
       }
       else if (ball_right) {
           // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
-          int angle = ballData.angle;
-          ball_vx = 70;
+          ball_vx = 40;
       }
       else if(!ball_left && !ball_right){
-        ball_vx = 0;
+          ball_vx = 0;
       }
-
-      /*Line Logic*/        
-      static unsigned long f_front_line_timer = 0;
-      static unsigned long f_back_line_timer = 0;
-
-      //bool f_back_touch = !((lineData.state >> 8) & 1); // Example: using the first line sensor as f_back touch
-      //static bool f_back_touch_state = false;
-      bool front_touch = analogRead(A7) < avg_ls[33];/*analogRead(A6) < avg_ls[32] || */
-      static bool f_front_touch_state = false;
-      bool mid_touch = !((lineData.state >> 6) & 1) || !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1) || !((lineData.state >> 9 ) & 1) || !((lineData.state >> 10) & 1);
       
-      if(front_touch && !f_front_touch_state){
-        f_front_touch_state = true;
-        f_front_line_timer = millis();
+      static bool front_leave = false;
+      bool front_mid = !((lineData.state >> 7) & 1) || !((lineData.state >> 8 ) & 1) || !((lineData.state >> 9) & 1) || analogRead(A6) < avg_ls[32];
+      //bool front_back = !((lineData.state >> 5) & 1) || !((lineData.state >> 6 ) & 1) || !((lineData.state >> 10) & 1) || !((lineData.state >> 11) & 1);
+      if(analogRead(A7) < avg_ls[33]){//前白後黑
+        front_leave = true;
+      }
+      else if(analogRead(A6) > avg_ls[32] && analogRead(A7) < avg_ls[33]){//前黑後白
+        front_leave = false;
+      }
+      if(front_leave){
+        ball_vy = 40;
+      }
+      else if(!front_leave){
+        ball_vy = 20;
+      }
+      if(front_mid){
+        ball_vy = 0;
       }
 
-      //Reset Vy timer
-      if(mid_touch){
-        f_front_line_timer = 0;
-        f_front_touch_state = false; 
-      }
-      Serial.println(f_front_line_timer, f_back_line_timer);
-      if(f_front_line_timer != 0){
-        ball_vy = (5 + (millis() - f_front_line_timer) * 0.1);
-        if(ball_vy > 20) ball_vy = 20;
-      }
-      /*
+      /*`
       if (RobotPos.y<-100){
         ball_vy = 15;
       }*/

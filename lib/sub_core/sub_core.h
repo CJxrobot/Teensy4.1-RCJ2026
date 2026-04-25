@@ -75,6 +75,11 @@ struct Position {
     int y; // -120 to 120
 };
 
+struct GoalData {
+    uint16_t x = 65535; uint16_t y = 65535;
+    uint16_t w = 65535; uint16_t h = 65535;
+    bool valid = false;
+};
 
 
 // Robot global configuration and tuning parameters
@@ -83,7 +88,7 @@ struct RobotStatus {
     //float P_factor = 0.7;         // Pololu Motor
     float P_factor = 0.85f;           // Proportional gain for rotation
 
-    float heading_threshold = 10.0f;  // Deadband (degrees)
+    float heading_threshold = 5.0f;  // Deadband (degrees)
     int8_t def_pos = 0;               // Default position state
     bool picked_up = false;           // Lift detection flag
 };
@@ -98,6 +103,7 @@ extern RobotStatus robot;        // Added to match Vector_Motion usage
 extern uint16_t avg_ls[34];
 extern BallData ballData;
 extern Position RobotPos;
+extern GoalData goalData;
 
 
 // --- Core Function Prototypes ---
@@ -116,4 +122,5 @@ void FC_Vector_Motion(float WVx, float WVy, float target_heading);
 void readMotor();
 void readMotorandSendSensors();
 void read_cam_and_pos_data();
+void readMainPacket();;
 #endif
