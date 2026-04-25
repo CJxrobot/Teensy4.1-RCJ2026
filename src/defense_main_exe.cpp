@@ -20,7 +20,7 @@ void c_mode_main_function() {
     while(1) {  
         update_all_sensor(); // Keep updating sensors!
         localizeRobot();
-        Serial.printf("GX %d\n", camData.goal_x);
+        Serial.printf("GX %d %d\n ", camData.goal_x, usData.dist_b);
         sendPacket();
     }
 }

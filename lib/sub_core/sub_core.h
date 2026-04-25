@@ -81,6 +81,12 @@ struct GoalData {
     bool valid = false;
 };
 
+struct USSensor {
+    uint16_t dist_b = 0; uint16_t dist_l = 0;
+    uint16_t dist_r = 0; uint16_t dist_f = 0;
+};
+
+
 
 // Robot global configuration and tuning parameters
 struct RobotStatus {
@@ -104,6 +110,7 @@ extern uint16_t avg_ls[34];
 extern BallData ballData;
 extern Position RobotPos;
 extern GoalData goalData;
+extern USSensor usData;
 
 
 // --- Core Function Prototypes ---

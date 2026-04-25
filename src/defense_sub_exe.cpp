@@ -45,15 +45,13 @@ bool moveBackInBounds(){
   static bool overhalf = false;
   bool online = false;
   for(int i = 0; i < LS_count; i++){
-    if(i==7 ||i==8 ||i==9 || i==10 || i==6 || i == 11 || i == 5){ // ignore middle 5 sensors
+    if(i>=5 && i<= 9){ // ignore middle 5 sensors
       if(bitRead(lineData.state, i) == 0){
-        online = true;
+        return false;
       }
-      continue;
-    }
-    
-      
+    } 
     if(bitRead(lineData.state, i) == 0){
+      Serial.print(i);
       sumX += linesensor_cos[i];
       sumY += linesensor_sin[i];
       count++;
@@ -133,7 +131,6 @@ bool moveBackInBounds(){
     return true;
   }
   else{
-    prev_final_degree = -1;
     first_detect = false;
     lineVx = 0;
     lineVy = 0;
@@ -151,7 +148,7 @@ void main_function() {
     //Serial.printf("Gyro Heading: %f\n", gyroData.heading);
     //Serial.printf("Ball Valid: %d, Ball Angle: %d, Ball Distance: %d \n", ballData.valid, ballData.angle, ballData.dist);
     Serial.printf("Robot Pos: (%d, %d)\n", RobotPos.x, RobotPos.y);
-    Serial.printf("Goal Valid: %d, Goal X: %d, Goal W: %d , Y: %d\n", goalData.valid, goalData.x, goalData.w, RobotPos.y);
+    Serial.printf("Goal Valid: %d, Goal X: %d, Goal W: %d , Y: %d\n, B: %d\n", goalData.valid, goalData.x, goalData.w, RobotPos.y, usData.dist_b);
     //use Ultrasonic Sensor for localization
     /*
     if(goalData.valid){
@@ -165,60 +162,75 @@ void main_function() {
         RobotPos.x = 0;
       }
     }
-    
-    
-    
-    
-    
     */
-    if(moveBackInBounds()){
-      Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
-      FC_Vector_Motion(lineVx, lineVy, 90);
+    /*
+    if(usData.dist_b < 20 || usData.dist_b > 30 ){
+      float back_vy = 0;
+      if(usData.dist_b < 20){
+        back_vy = 20;
+      }
+      else if(usData.dist_b > 30){
+        back_vy = -20;
+      }
+      FC_Vector_Motion(0, back_vy, 90);
     }
-    else{
-      /*Ball Logic*/
-      float ball_vx = 0;
-      float ball_vy = 0;
-      bool ball_left = ballData.valid && (ballData.angle > 105 && ballData.angle < 270);
-      bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
-      if (ball_left) {
-          // 180° = fully left (MAX_V), 90°/270° = barely left (0)
-          ball_vx = -40;
+    else if(goalData.x <= 320){
+      float back_vx = 0;
+      if(goalData.x > 260){
+        back_vx = -20;
       }
-      else if (ball_right) {
-          // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
-          ball_vx = 40;
+      else if(goalData.x < 260){
+        back_vx = 20;
       }
-      else if(!ball_left && !ball_right){
-          ball_vx = 0;
+      FC_Vector_Motion(back_vx, 0, 90);
+    }
+    else{*/
+      if(moveBackInBounds()){
+        Serial.printf("MOVING BACK IN BOUNDS %f %f", lineVx, lineVy);
+        FC_Vector_Motion(lineVx, lineVy, 90);
       }
-      
-      static bool front_leave = false;
-      bool front_mid = !((lineData.state >> 7) & 1) || !((lineData.state >> 8 ) & 1) || !((lineData.state >> 9) & 1) || analogRead(A6) < avg_ls[32];
-      //bool front_back = !((lineData.state >> 5) & 1) || !((lineData.state >> 6 ) & 1) || !((lineData.state >> 10) & 1) || !((lineData.state >> 11) & 1);
-      if(analogRead(A7) < avg_ls[33]){//前白後黑
-        front_leave = true;
-      }
-      else if(analogRead(A6) > avg_ls[32] && analogRead(A7) < avg_ls[33]){//前黑後白
-        front_leave = false;
-      }
-      if(front_leave){
-        ball_vy = 40;
-      }
-      else if(!front_leave){
-        ball_vy = 20;
-      }
-      if(front_mid){
-        ball_vy = 0;
-      }
+      else{
+        float ball_vx = 0;
+        float ball_vy = 0;
+        bool ball_left = ballData.valid && (ballData.angle > 105 && ballData.angle < 270);
+        bool ball_right = ballData.valid && (ballData.angle < 85 || ballData.angle > 270);
+        if (ball_left) {
+            // 180° = fully left (MAX_V), 90°/270° = barely left (0)
+            ball_vx = -20;
+        }
+        else if (ball_right) {
+            // 0°/360° = fully right (MAX_V), 85°/275° = barely right (0)
+            ball_vx = 20;
+        }
+        else if(!ball_left && !ball_right){
+            ball_vx = 0;
+        }
+        
+        static bool front_leave = false;
+        //bool front_back = !((lineData.state >> 5) & 1) || !((lineData.state >> 6 ) & 1) || !((lineData.state >> 10) & 1) || !((lineData.state >> 11) & 1);
+        if(analogRead(A7) < avg_ls[33]){//前白後黑
+          front_leave = true;
+        }
+        else if(analogRead(A6) > avg_ls[32] && analogRead(A7) < avg_ls[33]){//前黑後白
+          front_leave = false;
+        }
+        if(front_leave){
+          ball_vy = 40;
+        }
+        else if(!front_leave){
+          ball_vy =  0;
+        }
 
-      /*`
-      if (RobotPos.y<-100){
-        ball_vy = 15;
-      }*/
-      Serial.printf("Vx%f,Vy%f\n", ball_vx, ball_vy);
-      FC_Vector_Motion(ball_vx, ball_vy, 90);
-    }      
+        if(!((lineData.state >> 5) & 1) || !((lineData.state >> 9) & 1) ){
+          ball_vy = -20;
+        }
+        else if(!((lineData.state >> 6) & 1) || !((lineData.state >> 7) & 1) || !((lineData.state >> 8) & 1)){
+          ball_vy = -10;
+        }
+        Serial.printf("Vx%f,Vy%f\n", ball_vx, ball_vy);
+        FC_Vector_Motion(ball_vx, ball_vy, 90); 
+      }
+    //}
   }
 }
 

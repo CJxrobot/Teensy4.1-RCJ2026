@@ -6,6 +6,7 @@ GyroData gyroData;
 RobotStatus robot;
 MainCoreCommand mainCommand;
 GoalData goalData;
+USSensor usData;
 
 // --- Sensor Data ---
 BallData ballData;
@@ -315,7 +316,7 @@ void readMainPacket() {
             //s_us_f       = (int16_t)((buffer[11] << 8) | buffer[10]);
             //s_us_b       = (int16_t)((buffer[13] << 8) | buffer[12]);
             //s_us_l       = (int16_t)((buffer[15] << 8) | buffer[14]);
-            RobotPos.y     = (int16_t)((buffer[17] << 8) | buffer[16]);
+            usData.dist_b     = (int16_t)((buffer[13] << 8) | buffer[12]);
         }
     }
 }
