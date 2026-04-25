@@ -62,33 +62,19 @@ void defense_mode() {
     readMainPacket();
     update_line_sensor(); // Keep updating sensors!
     update_gyro_sensor();
-    bool hit_R  = ZONE_HIT(LS_ZONE_R);
-    bool hit_RU = ZONE_HIT(LS_ZONE_RU);
-    bool hit_U  = ZONE_HIT(LS_ZONE_U);
-    bool hit_LU = ZONE_HIT(LS_ZONE_LU);
-    bool hit_L  = ZONE_HIT(LS_ZONE_L);
-    bool hit_LD = ZONE_HIT(LS_ZONE_LD);
-    bool hit_D  = ZONE_HIT(LS_ZONE_D);
-    bool hit_RD = ZONE_HIT(LS_ZONE_RD);
-    float vx = 0;
-    
+    // 預設變數
+    float move_deg = -1;
+    uint8_t my_center = 0; 
 
-    bool ball_right = false, ball_left = false, ball_front = false;
     if (ballData.valid) {
-        int a = ballData.angle;
-        ball_right = (a < 80 || a > 280);
-        ball_left  = (a > 100 && a < 260);
-        ball_front = !ball_right && !ball_left;
+        // 簡單邏輯：球在左邊中心 16，右邊中心 0
+        my_center = (ballData.angle > 180) ? 16 : 0;
+
+        // 調用函數：掃描中心點左右各 7 顆感測器 (共 15 顆)
+        move_deg = get_line_move_angle(lineData.state, my_center, 7);
     }
-    if(ball_right){
-        vx = 30;
-    }
-    if(ball_left){
-        ;
-    }
-    if(ball_font){
-        ;
-    }
+    float vx = 0;
+    float vy = 0;
 
     FC_Vector_Motion(vx, vy, 90);
 }
