@@ -4,17 +4,6 @@ uint8_t op_mode;
 float lineVx = 0;
 float lineVy = 0;
 
-// ── 八區 bitmask ──────────────────────────────────────────────────────────────
-#define LS_ZONE_R   0x80000007UL  // sensor 31, 0, 1, 2   (中心  0°)
-#define LS_ZONE_RU  0x00000078UL  // sensor  3, 4, 5, 6   (中心 45°)
-#define LS_ZONE_U   0x00000780UL  // sensor  7, 8, 9,10   (中心 90°)
-#define LS_ZONE_LU  0x00007800UL  // sensor 11,12,13,14   (中心135°)
-#define LS_ZONE_L   0x00078000UL  // sensor 15,16,17,18   (中心180°)
-#define LS_ZONE_LD  0x00780000UL  // sensor 19,20,21,22   (中心225°)
-#define LS_ZONE_D   0x07800000UL  // sensor 23,24,25,26   (中心270°)
-#define LS_ZONE_RD  0x78000000UL  // sensor 27,28,29,30   (中心315°)
-
-#define ZONE_HIT(mask) ((~lineData.state & (mask)) != 0)
 #define DtoR_const 0.0174529f
 #define SPD   35
 #define SPD7  20  // SPD * 0.707
